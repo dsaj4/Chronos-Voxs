@@ -45,6 +45,46 @@ def _index_by_id(items: list[dict[str, Any]], key: str) -> dict[str, dict[str, A
     return {item[key]: item for item in items}
 
 
+def _humanize_case_token(token: str) -> str:
+    acronyms = {"ai": "AI", "crm": "CRM", "api": "API", "llm": "LLM"}
+    normalized = token.strip().lower()
+    if not normalized:
+        return ""
+    if normalized in acronyms:
+        return acronyms[normalized]
+    return normalized.capitalize()
+
+
+def _readable_label(*values: object) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        lowered = text.lower()
+        if any(token in lowered for token in ("vp_", "st_", "claim_", "norm_", "evidence cluster")):
+            continue
+        return text
+    return ""
+
+
+def _comparison_summary(model_id: str, storyline: Mapping[str, Any]) -> str:
+    storyline_label = _readable_label(storyline.get("storyline_label"), storyline.get("title")) or "当前主线"
+    if model_id == "bass_diffusion":
+        return f"Bass 相比 Gompertz 对{storyline_label}更乐观，认为扩散速度还没有触顶。"
+    return f"Gompertz 相比 Bass 对{storyline_label}更保守，认为热度会更早趋稳。"
+
+
+def _confidence_note(storyline: Mapping[str, Any], series: Mapping[str, Any]) -> str:
+    metadata = dict(series.get("metadata", {}))
+    note = str(metadata.get("confidence_note", "")).strip()
+    if note:
+        return note
+    evidence_posture = str(storyline.get("evidence_posture", "mixed"))
+    if evidence_posture == "grounded":
+        return "当前证据较扎实，但越往后预测不确定性会逐步上升。"
+    return "当前证据仍在收敛，未来桶的不确定性明显更高。"
+
+
 def _storyline_to_viewpoint_ids(state_like: Mapping[str, Any]) -> dict[str, list[str]]:
     memberships = sorted(
         _as_list(state_like.get("storyline_memberships")),
@@ -93,27 +133,33 @@ def _traceability(state_like: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def _model_reasoning(state_like: Mapping[str, Any]) -> list[dict[str, Any]]:
+    forecasts = sorted(
+        _as_list(state_like.get("storyline_forecasts")),
+        key=lambda item: (item.get("storyline_id", ""), item.get("model_id", "")),
+    )
     storylines = sorted(
         _as_list(state_like.get("storylines")),
         key=lambda item: (item.get("display_rank", 0), item.get("storyline_id", "")),
     )
+    storylines_by_id = _index_by_id(storylines, "storyline_id")
     reasoning: list[dict[str, Any]] = []
-    for storyline in storylines:
-        model_id = "bass_diffusion" if storyline.get("logic_status") == "stable" else "gompertz"
+    for series in forecasts:
+        storyline = storylines_by_id.get(series.get("storyline_id", ""), {})
+        model_id = str(series.get("model_id", "bass_diffusion"))
+        metadata = dict(series.get("metadata", {}))
         if model_id == "bass_diffusion":
-            assumptions = ["adoption feedback remains positive", "integration signals keep spreading"]
-            comparison = "Bass remains more optimistic than Gompertz on momentum."
+            assumptions = metadata.get("assumptions") or ["流程接入继续扩散", "系统集成节点继续增加"]
         else:
-            assumptions = ["friction remains present", "evidence volume is thin"]
-            comparison = "Gompertz is more conservative than Bass on growth."
+            assumptions = metadata.get("assumptions") or ["摩擦不会立刻消失", "后续增长会更快进入平台期"]
         reasoning.append(
             {
-                "storyline_id": storyline["storyline_id"],
+                "storyline_id": series["storyline_id"],
                 "model_id": model_id,
-                "assumptions": assumptions,
-                "explanation": storyline.get("summary", ""),
-                "confidence_note": "Confidence is moderate and declines across forecast buckets.",
-                "comparison_summary": comparison,
+                "assumptions": list(assumptions),
+                "explanation": str(series.get("explanation", "")).strip() or str(storyline.get("summary", "")).strip(),
+                "confidence_note": _confidence_note(storyline, series),
+                "comparison_summary": str(metadata.get("comparison_summary", "")).strip()
+                or _comparison_summary(model_id, storyline),
             }
         )
     return reasoning
@@ -123,8 +169,18 @@ def _particle_field(state_like: Mapping[str, Any]) -> dict[str, list[dict[str, A
     comments = _index_by_id(_as_list(state_like.get("normalized_comments")), "comment_id")
     claims = sorted(_as_list(state_like.get("claims")), key=lambda item: item.get("claim_id", ""))
     viewpoints = _index_by_id(_as_list(state_like.get("viewpoints")), "viewpoint_id")
+    storylines = _index_by_id(_as_list(state_like.get("storylines")), "storyline_id")
     storyline_lookup = _viewpoint_to_storyline_id(state_like)
-    snapshots = _as_list(state_like.get("storyline_snapshots"))
+    storyline_snapshots = _as_list(state_like.get("storyline_snapshots"))
+    viewpoint_snapshots = _as_list(state_like.get("viewpoint_snapshots"))
+    bucket_start_by_viewpoint: dict[tuple[str, int], str] = {}
+    for snapshot in viewpoint_snapshots:
+        bucket_start_by_viewpoint[(snapshot.get("viewpoint_id", ""), int(snapshot.get("bucket_index", 0)))] = snapshot.get(
+            "bucket_start", ""
+        )
+    for snapshot in storyline_snapshots:
+        for viewpoint_id in snapshot.get("viewpoint_ids", []):
+            bucket_start_by_viewpoint[(viewpoint_id, int(snapshot.get("bucket_index", 0)))] = snapshot.get("bucket_start", "")
 
     particles: list[dict[str, Any]] = []
     for claim in claims:
@@ -142,15 +198,7 @@ def _particle_field(state_like: Mapping[str, Any]) -> dict[str, list[dict[str, A
         if storyline_id is None:
             continue
         comment = comments.get(claim["comment_id"], {})
-        matched_snapshot_index = next(
-            (
-                snapshot["bucket_index"]
-                for snapshot in snapshots
-                if snapshot.get("storyline_id") == storyline_id
-                and viewpoint_id in snapshot.get("viewpoint_ids", [])
-            ),
-            0,
-        )
+        matched_snapshot_index = int(claim.get("metadata", {}).get("bucket_index", 0))
         particles.append(
             {
                 "particle_id": f"particle_{claim['claim_id']}",
@@ -159,9 +207,9 @@ def _particle_field(state_like: Mapping[str, Any]) -> dict[str, list[dict[str, A
                 "claim_id": claim["claim_id"],
                 "comment_id": claim["comment_id"],
                 "bucket_index": matched_snapshot_index,
-                "bucket_start": comment.get("created_at", "")[:10],
+                "bucket_start": bucket_start_by_viewpoint.get((viewpoint_id, matched_snapshot_index), comment.get("created_at", "")[:10]),
                 "signal_strength": float(claim.get("signal_strength", 0.0)),
-                "excerpt": comment.get("canonical_text", claim.get("evidence_text", "")),
+                "excerpt": str(claim.get("evidence_text", "")).strip() or comment.get("canonical_text", ""),
             }
         )
 
@@ -170,47 +218,29 @@ def _particle_field(state_like: Mapping[str, Any]) -> dict[str, list[dict[str, A
         particles_by_storyline[particle["storyline_id"]].append(particle)
 
     evidence_clusters: list[dict[str, Any]] = []
-    storylines = sorted(
-        _as_list(state_like.get("storylines")),
-        key=lambda item: (item.get("display_rank", 0), item.get("storyline_id", "")),
-    )
-    for storyline in storylines:
-        storyline_id = storyline["storyline_id"]
-        storyline_snapshots = [
-            snapshot
-            for snapshot in snapshots
-            if snapshot.get("storyline_id") == storyline_id and snapshot.get("viewpoint_ids")
-        ]
-        if not storyline_snapshots:
-            continue
-        snapshot = max(storyline_snapshots, key=lambda item: item.get("bucket_index", 0))
-        viewpoint_ids = list(snapshot.get("viewpoint_ids", []))
-        comment_ids = sorted(
-            {
-                particle["comment_id"]
-                for particle in particles_by_storyline.get(storyline_id, [])
-                if particle["viewpoint_id"] in viewpoint_ids
-            }
-        )
-        if not comment_ids:
-            continue
-        representative_comment_id = next(
-            (
-                particle["comment_id"]
-                for particle in particles_by_storyline.get(storyline_id, [])
-                if particle["viewpoint_id"] in viewpoint_ids
-            ),
-            comment_ids[0],
-        )
-        viewpoint = viewpoints.get(viewpoint_ids[0], {})
+    particles_by_cluster: dict[tuple[str, str, int], list[dict[str, Any]]] = defaultdict(list)
+    for particle in particles:
+        particles_by_cluster[(particle["storyline_id"], particle["viewpoint_id"], int(particle["bucket_index"]))].append(particle)
+
+    for (storyline_id, viewpoint_id, bucket_index), cluster_particles in sorted(
+        particles_by_cluster.items(),
+        key=lambda item: (item[0][0], item[0][2], item[0][1]),
+    ):
+        cluster_particles = sorted(cluster_particles, key=lambda item: (-float(item.get("signal_strength", 0.0)), item["comment_id"]))
+        comment_ids = list(dict.fromkeys(particle["comment_id"] for particle in cluster_particles))
+        representative_comment_id = cluster_particles[0]["comment_id"]
+        viewpoint = viewpoints.get(viewpoint_id, {})
+        storyline = storylines.get(storyline_id, {})
+        label_seed = _readable_label(storyline.get("storyline_label"), viewpoint.get("viewpoint_label"), viewpoint.get("title"))
+        label = f"{label_seed}证据簇" if label_seed and not label_seed.endswith("证据簇") else label_seed or "证据簇"
         evidence_clusters.append(
             {
-                "cluster_id": f"cluster_{storyline_id}_{snapshot['bucket_index']}",
+                "cluster_id": f"cluster_{storyline_id}_{bucket_index}_{viewpoint_id}",
                 "storyline_id": storyline_id,
-                "viewpoint_id": viewpoint_ids[0],
-                "bucket_index": snapshot["bucket_index"],
-                "bucket_start": snapshot["bucket_start"],
-                "label": f"{viewpoint.get('viewpoint_label', 'evidence')} / evidence cluster",
+                "viewpoint_id": viewpoint_id,
+                "bucket_index": bucket_index,
+                "bucket_start": cluster_particles[0]["bucket_start"],
+                "label": label,
                 "comment_ids": comment_ids,
                 "representative_comment_id": representative_comment_id,
             }
@@ -239,8 +269,13 @@ def _source_platforms(state_like: Mapping[str, Any]) -> list[str]:
 
 
 def _default_case_title(state_like: Mapping[str, Any]) -> str:
+    metadata = state_like.get("metadata")
+    if isinstance(metadata, Mapping):
+        custom_title = str(metadata.get("case_title", "")).strip()
+        if custom_title:
+            return custom_title
     case_id = str(state_like.get("case_id", "case"))
-    return case_id.replace("_", " ").title()
+    return " ".join(_humanize_case_token(token) for token in case_id.split("_") if token)
 
 
 def _bundle_meta(

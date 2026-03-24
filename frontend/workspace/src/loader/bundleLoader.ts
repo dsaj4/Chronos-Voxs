@@ -17,7 +17,20 @@ function ensureBundleShape(value: unknown): asserts value is PublishedBundle {
   }
 }
 
-export async function loadPublishedBundle(url = DEFAULT_BUNDLE_URL): Promise<PublishedBundle> {
+export function resolvePublishedBundleUrl(
+  locationSearch = typeof window !== "undefined" ? window.location.search : "",
+  defaultUrl = DEFAULT_BUNDLE_URL
+): string {
+  if (!locationSearch) {
+    return defaultUrl;
+  }
+
+  const params = new URLSearchParams(locationSearch);
+  const override = params.get("bundle")?.trim();
+  return override || defaultUrl;
+}
+
+export async function loadPublishedBundle(url = resolvePublishedBundleUrl()): Promise<PublishedBundle> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to load published bundle from ${url}: ${response.status} ${response.statusText}`);

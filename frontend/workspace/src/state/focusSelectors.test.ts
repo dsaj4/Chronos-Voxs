@@ -126,6 +126,28 @@ describe("focusSelectors", () => {
     expect(scoped.evidenceClusters.every((cluster) => cluster.viewpoint_id === "vp_003")).toBe(true);
   });
 
+  it("keeps relationship and evidence scopes on the latest populated bucket without fallback", () => {
+    const bundle = createPublishedBundleFixture();
+    const focus = createFocus({
+      activeStorylineIds: ["st_001"],
+      activeViewpointId: "vp_003",
+      activeBucketIndex: 1
+    });
+
+    const relationshipScope = getScopedRelationshipState(bundle, focus);
+    const evidenceScope = getScopedEvidenceState(bundle, focus);
+
+    expect(relationshipScope.didFallback).toBe(false);
+    expect(relationshipScope.resolvedBucketIndex).toBe(1);
+    expect(relationshipScope.displayViewpointId).toBe("vp_003");
+    expect(relationshipScope.lanes[0]?.viewpointId).toBe("vp_003");
+    expect(evidenceScope.didFallback).toBe(false);
+    expect(evidenceScope.resolvedBucketIndex).toBe(1);
+    expect(evidenceScope.resolvedViewpointId).toBe("vp_003");
+    expect(evidenceScope.particles).toHaveLength(1);
+    expect(evidenceScope.evidenceClusters).toHaveLength(1);
+  });
+
   it("falls back to storyline evidence when the active viewpoint has no evidence", () => {
     const bundle = createPublishedBundleFixture();
     const focus = createFocus({

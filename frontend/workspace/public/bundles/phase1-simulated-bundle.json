@@ -1,0 +1,1445 @@
+{
+  "meta": {
+    "case_id": "ai_agent_practicalization_simulated",
+    "case_title": "AI Agent Practicalization Simulated",
+    "topic_tag": "ai_agent_practicalization",
+    "contract_version": "2026-03-24.v1",
+    "fixture_id": "ai_agent_practicalization_simulated-deterministic-v1",
+    "generated_at": "2026-03-24T12:30:00Z",
+    "bucket_granularity": "day",
+    "analysis_window_start": "2026-03-10",
+    "analysis_window_end": "2026-03-14",
+    "source_platforms": [
+      "bilibili",
+      "weibo",
+      "xiaohongshu",
+      "zhihu"
+    ],
+    "default_model_id": "bass_diffusion",
+    "available_models": [
+      {
+        "id": "bass_diffusion",
+        "label": "Bass Diffusion",
+        "category": "diffusion",
+        "description": "Diffusion-oriented model."
+      },
+      {
+        "id": "gompertz",
+        "label": "Gompertz",
+        "category": "saturation",
+        "description": "Saturation-oriented model."
+      }
+    ]
+  },
+  "stream": {
+    "storylines": [
+      {
+        "storyline_id": "st_001",
+        "topic_tag": "ai_agent_practicalization",
+        "storyline_label": "务实落地线",
+        "title": "Agent 正在沿流程接入与系统集成加速落地",
+        "summary": "当前主线由 2 个互相增强的观点构成，核心叙事是 Agent 先接流程，再接 CRM、工单和 API 节点完成系统集成并加速落地，累计支持 13。",
+        "summary_source": "llm",
+        "logic_status": "stable",
+        "evidence_posture": "grounded",
+        "support_count": 13,
+        "viewpoint_count": 2,
+        "comment_count": 13,
+        "keywords": [
+          "crm",
+          "线索分发和工单回写终于不用人工抄表了",
+          "sop",
+          "不是全自动替代",
+          "半自动化"
+        ],
+        "display_rank": 1,
+        "display_tier": "primary",
+        "metadata": {
+          "storyline_key": "adoption_storyline"
+        }
+      },
+      {
+        "storyline_id": "st_002",
+        "topic_tag": "ai_agent_practicalization",
+        "storyline_label": "部署摩擦线",
+        "title": "部署与维护压力继续压制 Agent 扩张",
+        "summary": "另一条主线持续强调 deploy、权限和维护复杂度对 Agent 扩张的压制，这条线当前有 8 条稳定支持。",
+        "summary_source": "llm",
+        "logic_status": "emerging",
+        "evidence_posture": "grounded",
+        "support_count": 8,
+        "viewpoint_count": 1,
+        "comment_count": 8,
+        "keywords": [
+          "deploy",
+          "方案",
+          "权限",
+          "上线后不是结束",
+          "但真正的运维成本经常没人展开讲"
+        ],
+        "display_rank": 2,
+        "display_tier": "secondary",
+        "metadata": {
+          "storyline_key": "friction_storyline"
+        }
+      }
+    ],
+    "storyline_snapshots": [
+      {
+        "snapshot_id": "st_snap_st_001_0",
+        "storyline_id": "st_001",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "bucket_granularity": "day",
+        "support_count": 3,
+        "comment_count": 3,
+        "viewpoint_ids": [
+          "vp_001",
+          "vp_002"
+        ],
+        "storyline_heat_index": 61.2,
+        "top_viewpoint_ids": [
+          "vp_001",
+          "vp_002"
+        ],
+        "metadata": {
+          "storyline_key": "adoption_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_001_1",
+        "storyline_id": "st_001",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "bucket_granularity": "day",
+        "support_count": 4,
+        "comment_count": 4,
+        "viewpoint_ids": [
+          "vp_002"
+        ],
+        "storyline_heat_index": 75.67,
+        "top_viewpoint_ids": [
+          "vp_002"
+        ],
+        "metadata": {
+          "storyline_key": "adoption_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_001_3",
+        "storyline_id": "st_001",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "bucket_granularity": "day",
+        "support_count": 3,
+        "comment_count": 3,
+        "viewpoint_ids": [
+          "vp_002"
+        ],
+        "storyline_heat_index": 65.73,
+        "top_viewpoint_ids": [
+          "vp_002"
+        ],
+        "metadata": {
+          "storyline_key": "adoption_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_001_4",
+        "storyline_id": "st_001",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "bucket_granularity": "day",
+        "support_count": 3,
+        "comment_count": 3,
+        "viewpoint_ids": [
+          "vp_001",
+          "vp_002"
+        ],
+        "storyline_heat_index": 67.7,
+        "top_viewpoint_ids": [
+          "vp_001",
+          "vp_002"
+        ],
+        "metadata": {
+          "storyline_key": "adoption_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_002_0",
+        "storyline_id": "st_002",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "bucket_granularity": "day",
+        "support_count": 1,
+        "comment_count": 1,
+        "viewpoint_ids": [
+          "vp_003"
+        ],
+        "storyline_heat_index": 32.67,
+        "top_viewpoint_ids": [
+          "vp_003"
+        ],
+        "metadata": {
+          "storyline_key": "friction_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_002_2",
+        "storyline_id": "st_002",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "bucket_granularity": "day",
+        "support_count": 4,
+        "comment_count": 4,
+        "viewpoint_ids": [
+          "vp_003"
+        ],
+        "storyline_heat_index": 76.57,
+        "top_viewpoint_ids": [
+          "vp_003"
+        ],
+        "metadata": {
+          "storyline_key": "friction_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_002_3",
+        "storyline_id": "st_002",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "bucket_granularity": "day",
+        "support_count": 1,
+        "comment_count": 1,
+        "viewpoint_ids": [
+          "vp_003"
+        ],
+        "storyline_heat_index": 36.47,
+        "top_viewpoint_ids": [
+          "vp_003"
+        ],
+        "metadata": {
+          "storyline_key": "friction_storyline"
+        }
+      },
+      {
+        "snapshot_id": "st_snap_st_002_4",
+        "storyline_id": "st_002",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "bucket_granularity": "day",
+        "support_count": 2,
+        "comment_count": 2,
+        "viewpoint_ids": [
+          "vp_003"
+        ],
+        "storyline_heat_index": 52.13,
+        "top_viewpoint_ids": [
+          "vp_003"
+        ],
+        "metadata": {
+          "storyline_key": "friction_storyline"
+        }
+      }
+    ],
+    "forecast_series": [
+      {
+        "storyline_id": "st_001",
+        "model_id": "bass_diffusion",
+        "model_label": "Bass Diffusion",
+        "target_metric": "storylineHeatIndex",
+        "historical_points": [
+          {
+            "bucket_index": 0,
+            "bucket_start": "2026-03-10",
+            "bucket_granularity": "day",
+            "value": 61.2,
+            "confidence_low": 61.2,
+            "confidence_high": 61.2,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 1,
+            "bucket_start": "2026-03-11",
+            "bucket_granularity": "day",
+            "value": 75.67,
+            "confidence_low": 75.67,
+            "confidence_high": 75.67,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 3,
+            "bucket_start": "2026-03-13",
+            "bucket_granularity": "day",
+            "value": 65.73,
+            "confidence_low": 65.73,
+            "confidence_high": 65.73,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 4,
+            "bucket_start": "2026-03-14",
+            "bucket_granularity": "day",
+            "value": 67.7,
+            "confidence_low": 67.7,
+            "confidence_high": 67.7,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          }
+        ],
+        "forecast_points": [
+          {
+            "bucket_index": 5,
+            "bucket_start": "2026-03-15",
+            "bucket_granularity": "day",
+            "value": 69.18,
+            "confidence_low": 62.18,
+            "confidence_high": 76.18,
+            "confidence_score": 0.86,
+            "is_forecast": true
+          },
+          {
+            "bucket_index": 6,
+            "bucket_start": "2026-03-16",
+            "bucket_granularity": "day",
+            "value": 70.53,
+            "confidence_low": 62.53,
+            "confidence_high": 78.53,
+            "confidence_score": 0.77,
+            "is_forecast": true
+          }
+        ],
+        "explanation": "Agent 正在沿流程接入与系统集成加速落地 在 Bass 视角下仍处于扩散阶段，后续热度会沿相邻业务场景继续外溢。",
+        "metadata": {
+          "assumptions": [
+            "流程接入继续扩散",
+            "系统集成节点继续增加"
+          ],
+          "confidence_note": "务实落地线 的当前证据较扎实，但越往后预测不确定性越高。",
+          "comparison_summary": "Bass 相比 Gompertz 更乐观，认为扩散速度还没有触顶。"
+        }
+      },
+      {
+        "storyline_id": "st_001",
+        "model_id": "gompertz",
+        "model_label": "Gompertz",
+        "target_metric": "storylineHeatIndex",
+        "historical_points": [
+          {
+            "bucket_index": 0,
+            "bucket_start": "2026-03-10",
+            "bucket_granularity": "day",
+            "value": 61.2,
+            "confidence_low": 61.2,
+            "confidence_high": 61.2,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 1,
+            "bucket_start": "2026-03-11",
+            "bucket_granularity": "day",
+            "value": 75.67,
+            "confidence_low": 75.67,
+            "confidence_high": 75.67,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 3,
+            "bucket_start": "2026-03-13",
+            "bucket_granularity": "day",
+            "value": 65.73,
+            "confidence_low": 65.73,
+            "confidence_high": 65.73,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 4,
+            "bucket_start": "2026-03-14",
+            "bucket_granularity": "day",
+            "value": 67.7,
+            "confidence_low": 67.7,
+            "confidence_high": 67.7,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          }
+        ],
+        "forecast_points": [
+          {
+            "bucket_index": 5,
+            "bucket_start": "2026-03-15",
+            "bucket_granularity": "day",
+            "value": 34.03,
+            "confidence_low": 28.03,
+            "confidence_high": 40.03,
+            "confidence_score": 0.84,
+            "is_forecast": true
+          },
+          {
+            "bucket_index": 6,
+            "bucket_start": "2026-03-16",
+            "bucket_granularity": "day",
+            "value": 34.42,
+            "confidence_low": 27.42,
+            "confidence_high": 41.42,
+            "confidence_score": 0.74,
+            "is_forecast": true
+          }
+        ],
+        "explanation": "Agent 正在沿流程接入与系统集成加速落地 在 Gompertz 视角下会更早进入放缓阶段，增长仍在但斜率会收敛。",
+        "metadata": {
+          "assumptions": [
+            "摩擦不会立刻消失",
+            "后续增长会更快进入平台期"
+          ],
+          "confidence_note": "务实落地线 的未来走势更容易受部署治理与预算收紧影响，置信度中等偏低。",
+          "comparison_summary": "Gompertz 相比 Bass 更保守，认为热度会更早趋稳。"
+        }
+      },
+      {
+        "storyline_id": "st_002",
+        "model_id": "bass_diffusion",
+        "model_label": "Bass Diffusion",
+        "target_metric": "storylineHeatIndex",
+        "historical_points": [
+          {
+            "bucket_index": 0,
+            "bucket_start": "2026-03-10",
+            "bucket_granularity": "day",
+            "value": 32.67,
+            "confidence_low": 32.67,
+            "confidence_high": 32.67,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 2,
+            "bucket_start": "2026-03-12",
+            "bucket_granularity": "day",
+            "value": 76.57,
+            "confidence_low": 76.57,
+            "confidence_high": 76.57,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 3,
+            "bucket_start": "2026-03-13",
+            "bucket_granularity": "day",
+            "value": 36.47,
+            "confidence_low": 36.47,
+            "confidence_high": 36.47,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 4,
+            "bucket_start": "2026-03-14",
+            "bucket_granularity": "day",
+            "value": 52.13,
+            "confidence_low": 52.13,
+            "confidence_high": 52.13,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          }
+        ],
+        "forecast_points": [
+          {
+            "bucket_index": 5,
+            "bucket_start": "2026-03-15",
+            "bucket_granularity": "day",
+            "value": 64.1,
+            "confidence_low": 57.1,
+            "confidence_high": 71.1,
+            "confidence_score": 0.86,
+            "is_forecast": true
+          },
+          {
+            "bucket_index": 6,
+            "bucket_start": "2026-03-16",
+            "bucket_granularity": "day",
+            "value": 73.07,
+            "confidence_low": 65.07,
+            "confidence_high": 81.07,
+            "confidence_score": 0.77,
+            "is_forecast": true
+          }
+        ],
+        "explanation": "部署与维护压力继续压制 Agent 扩张 在 Bass 视角下仍处于扩散阶段，后续热度会沿相邻业务场景继续外溢。",
+        "metadata": {
+          "assumptions": [
+            "流程接入继续扩散",
+            "系统集成节点继续增加"
+          ],
+          "confidence_note": "部署摩擦线 的当前证据较扎实，但越往后预测不确定性越高。",
+          "comparison_summary": "Bass 相比 Gompertz 更乐观，认为扩散速度还没有触顶。"
+        }
+      },
+      {
+        "storyline_id": "st_002",
+        "model_id": "gompertz",
+        "model_label": "Gompertz",
+        "target_metric": "storylineHeatIndex",
+        "historical_points": [
+          {
+            "bucket_index": 0,
+            "bucket_start": "2026-03-10",
+            "bucket_granularity": "day",
+            "value": 32.67,
+            "confidence_low": 32.67,
+            "confidence_high": 32.67,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 2,
+            "bucket_start": "2026-03-12",
+            "bucket_granularity": "day",
+            "value": 76.57,
+            "confidence_low": 76.57,
+            "confidence_high": 76.57,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 3,
+            "bucket_start": "2026-03-13",
+            "bucket_granularity": "day",
+            "value": 36.47,
+            "confidence_low": 36.47,
+            "confidence_high": 36.47,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          },
+          {
+            "bucket_index": 4,
+            "bucket_start": "2026-03-14",
+            "bucket_granularity": "day",
+            "value": 52.13,
+            "confidence_low": 52.13,
+            "confidence_high": 52.13,
+            "confidence_score": 1.0,
+            "is_forecast": false
+          }
+        ],
+        "forecast_points": [
+          {
+            "bucket_index": 5,
+            "bucket_start": "2026-03-15",
+            "bucket_granularity": "day",
+            "value": 33.77,
+            "confidence_low": 27.77,
+            "confidence_high": 39.77,
+            "confidence_score": 0.84,
+            "is_forecast": true
+          },
+          {
+            "bucket_index": 6,
+            "bucket_start": "2026-03-16",
+            "bucket_granularity": "day",
+            "value": 34.95,
+            "confidence_low": 27.95,
+            "confidence_high": 41.95,
+            "confidence_score": 0.74,
+            "is_forecast": true
+          }
+        ],
+        "explanation": "部署与维护压力继续压制 Agent 扩张 在 Gompertz 视角下会更早进入放缓阶段，增长仍在但斜率会收敛。",
+        "metadata": {
+          "assumptions": [
+            "摩擦不会立刻消失",
+            "后续增长会更快进入平台期"
+          ],
+          "confidence_note": "部署摩擦线 的未来走势更容易受部署治理与预算收紧影响，置信度中等偏低。",
+          "comparison_summary": "Gompertz 相比 Bass 更保守，认为热度会更早趋稳。"
+        }
+      }
+    ]
+  },
+  "neural_map": {
+    "viewpoints": [
+      {
+        "viewpoint_id": "vp_003",
+        "topic_tag": "deployment_friction",
+        "viewpoint_label": "部署与运维摩擦",
+        "title": "部署维护成本仍在拖慢 Agent 扩张",
+        "claim_statement": "deploy、权限、日志和维护值班成本，仍然是当前 Agent 规模化的主要阻力。",
+        "summary": "负向评论稳定指向 deploy 成本、维护值班和权限审计压力，这条摩擦线目前积累了 8 条有效支持。",
+        "summary_source": "llm",
+        "summary_grounding_score": 0.9,
+        "claim_ids": [
+          "claim_003",
+          "claim_009",
+          "claim_010",
+          "claim_011",
+          "claim_012",
+          "claim_015",
+          "claim_018",
+          "claim_019"
+        ],
+        "comment_ids": [
+          "norm_004",
+          "norm_011",
+          "norm_012",
+          "norm_013",
+          "norm_014",
+          "norm_018",
+          "norm_022",
+          "norm_024"
+        ],
+        "representative_claim_ids": [
+          "claim_003",
+          "claim_009"
+        ],
+        "evidence_comment_ids": [
+          "norm_004",
+          "norm_011",
+          "norm_012",
+          "norm_013",
+          "norm_014",
+          "norm_018",
+          "norm_022",
+          "norm_024"
+        ],
+        "support_count": 8,
+        "unique_comment_count": 8,
+        "keywords": [
+          "deploy",
+          "方案",
+          "权限",
+          "上线后不是结束",
+          "但真正的运维成本经常没人展开讲"
+        ],
+        "metadata": {
+          "cluster_key": "deployment_friction",
+          "storyline_key": "friction_storyline"
+        }
+      },
+      {
+        "viewpoint_id": "vp_002",
+        "topic_tag": "integration_roi",
+        "viewpoint_label": "系统集成收益",
+        "title": "接 CRM 和工单后 Agent 的 ROI 最直观",
+        "claim_statement": "当 Agent 接入 CRM、工单和 API 节点时，效率收益会比孤立聊天能力更清楚。",
+        "summary": "证据主要集中在 CRM、工单、webhook 和 API 集成后的效率改善，关键词包括 crm/线索分发和工单回写终于不用人工抄表了/api。",
+        "summary_source": "llm",
+        "summary_grounding_score": 0.93,
+        "claim_ids": [
+          "claim_002",
+          "claim_005",
+          "claim_006",
+          "claim_007",
+          "claim_008",
+          "claim_013",
+          "claim_014",
+          "claim_016",
+          "claim_021"
+        ],
+        "comment_ids": [
+          "norm_002",
+          "norm_006",
+          "norm_007",
+          "norm_008",
+          "norm_010",
+          "norm_016",
+          "norm_017",
+          "norm_019",
+          "norm_026"
+        ],
+        "representative_claim_ids": [
+          "claim_002",
+          "claim_005"
+        ],
+        "evidence_comment_ids": [
+          "norm_002",
+          "norm_006",
+          "norm_007",
+          "norm_008",
+          "norm_010",
+          "norm_016",
+          "norm_017",
+          "norm_019",
+          "norm_026"
+        ],
+        "support_count": 9,
+        "unique_comment_count": 9,
+        "keywords": [
+          "crm",
+          "线索分发和工单回写终于不用人工抄表了",
+          "api",
+          "demo",
+          "roi"
+        ],
+        "metadata": {
+          "cluster_key": "integration_roi",
+          "storyline_key": "adoption_storyline"
+        }
+      },
+      {
+        "viewpoint_id": "vp_001",
+        "topic_tag": "pragmatic_adoption",
+        "viewpoint_label": "务实落地打法",
+        "title": "Agent 先接流程再扩权更容易落地",
+        "claim_statement": "Agent 的首个稳定价值来自半自动流程接管，而不是一步到位的全自动替代。",
+        "summary": "样本里多条高质量评论都把 Agent 的落地点放在重复流程、审批流、半自动协同和避免全自动冒进上，支持数达到 4。",
+        "summary_source": "llm",
+        "summary_grounding_score": 0.91,
+        "claim_ids": [
+          "claim_001",
+          "claim_004",
+          "claim_017",
+          "claim_020"
+        ],
+        "comment_ids": [
+          "norm_001",
+          "norm_005",
+          "norm_021",
+          "norm_025"
+        ],
+        "representative_claim_ids": [
+          "claim_001",
+          "claim_004"
+        ],
+        "evidence_comment_ids": [
+          "norm_001",
+          "norm_005",
+          "norm_021",
+          "norm_025"
+        ],
+        "support_count": 4,
+        "unique_comment_count": 4,
+        "keywords": [
+          "sop",
+          "不是全自动替代",
+          "半自动化",
+          "真正能落地的",
+          "而是先把重复"
+        ],
+        "metadata": {
+          "cluster_key": "pragmatic_adoption",
+          "storyline_key": "adoption_storyline"
+        }
+      }
+    ],
+    "viewpoint_snapshots": [
+      {
+        "snapshot_id": "vp_snap_vp_001_0",
+        "viewpoint_id": "vp_001",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "bucket_granularity": "day",
+        "support_count": 2,
+        "unique_comment_count": 2,
+        "heat_index": 56.7,
+        "representative_claim_ids": [
+          "claim_001",
+          "claim_004"
+        ],
+        "metadata": {
+          "cluster_key": "pragmatic_adoption"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_001_4",
+        "viewpoint_id": "vp_001",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "bucket_granularity": "day",
+        "support_count": 2,
+        "unique_comment_count": 2,
+        "heat_index": 62.9,
+        "representative_claim_ids": [
+          "claim_017",
+          "claim_020"
+        ],
+        "metadata": {
+          "cluster_key": "pragmatic_adoption"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_002_0",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "bucket_granularity": "day",
+        "support_count": 1,
+        "unique_comment_count": 1,
+        "heat_index": 39.2,
+        "representative_claim_ids": [
+          "claim_002"
+        ],
+        "metadata": {
+          "cluster_key": "integration_roi"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_002_1",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "bucket_granularity": "day",
+        "support_count": 4,
+        "unique_comment_count": 4,
+        "heat_index": 93.0,
+        "representative_claim_ids": [
+          "claim_005",
+          "claim_006"
+        ],
+        "metadata": {
+          "cluster_key": "integration_roi"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_002_3",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "bucket_granularity": "day",
+        "support_count": 3,
+        "unique_comment_count": 3,
+        "heat_index": 78.73,
+        "representative_claim_ids": [
+          "claim_013",
+          "claim_014"
+        ],
+        "metadata": {
+          "cluster_key": "integration_roi"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_002_4",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "bucket_granularity": "day",
+        "support_count": 1,
+        "unique_comment_count": 1,
+        "heat_index": 46.3,
+        "representative_claim_ids": [
+          "claim_021"
+        ],
+        "metadata": {
+          "cluster_key": "integration_roi"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_003_0",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "bucket_granularity": "day",
+        "support_count": 1,
+        "unique_comment_count": 1,
+        "heat_index": 37.0,
+        "representative_claim_ids": [
+          "claim_003"
+        ],
+        "metadata": {
+          "cluster_key": "deployment_friction"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_003_2",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "bucket_granularity": "day",
+        "support_count": 4,
+        "unique_comment_count": 4,
+        "heat_index": 93.9,
+        "representative_claim_ids": [
+          "claim_009",
+          "claim_010"
+        ],
+        "metadata": {
+          "cluster_key": "deployment_friction"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_003_3",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "bucket_granularity": "day",
+        "support_count": 1,
+        "unique_comment_count": 1,
+        "heat_index": 40.8,
+        "representative_claim_ids": [
+          "claim_015"
+        ],
+        "metadata": {
+          "cluster_key": "deployment_friction"
+        }
+      },
+      {
+        "snapshot_id": "vp_snap_vp_003_4",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "bucket_granularity": "day",
+        "support_count": 2,
+        "unique_comment_count": 2,
+        "heat_index": 60.8,
+        "representative_claim_ids": [
+          "claim_018",
+          "claim_019"
+        ],
+        "metadata": {
+          "cluster_key": "deployment_friction"
+        }
+      }
+    ],
+    "viewpoint_relations": [
+      {
+        "relation_id": "vp_rel_001",
+        "source_viewpoint_id": "vp_002",
+        "target_viewpoint_id": "vp_001",
+        "relation_type": "reinforces",
+        "weight": 0.81,
+        "evidence_claim_ids": [
+          "claim_002",
+          "claim_005"
+        ],
+        "rationale": "系统集成收益会放大务实落地路线的可信度。",
+        "metadata": {}
+      },
+      {
+        "relation_id": "vp_rel_002",
+        "source_viewpoint_id": "vp_003",
+        "target_viewpoint_id": "vp_001",
+        "relation_type": "constrains",
+        "weight": 0.74,
+        "evidence_claim_ids": [
+          "claim_003",
+          "claim_009"
+        ],
+        "rationale": "部署与运维摩擦会直接压制落地扩张速度。",
+        "metadata": {}
+      },
+      {
+        "relation_id": "vp_rel_003",
+        "source_viewpoint_id": "vp_003",
+        "target_viewpoint_id": "vp_002",
+        "relation_type": "constrains",
+        "weight": 0.69,
+        "evidence_claim_ids": [
+          "claim_003",
+          "claim_009"
+        ],
+        "rationale": "部署与运维摩擦会直接压制落地扩张速度。",
+        "metadata": {}
+      }
+    ],
+    "storyline_relations": [
+      {
+        "relation_id": "st_rel_001",
+        "source_storyline_id": "st_002",
+        "target_storyline_id": "st_001",
+        "relation_type": "constrains",
+        "weight": 0.78,
+        "evidence_viewpoint_ids": [
+          "vp_003"
+        ],
+        "rationale": "部署与维护摩擦持续压制落地主线的扩张速度。",
+        "metadata": {}
+      }
+    ]
+  },
+  "particle_field": {
+    "particles": [
+      {
+        "particle_id": "particle_claim_001",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_001",
+        "claim_id": "claim_001",
+        "comment_id": "norm_001",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "signal_strength": 0.93,
+        "excerpt": "真正能落地的 Agent 不是全自动替代，而是先把重复 SOP 半自动化。"
+      },
+      {
+        "particle_id": "particle_claim_002",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_002",
+        "comment_id": "norm_002",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "signal_strength": 0.9,
+        "excerpt": "Agent 接 CRM 后，线索分发和工单回写终于不用人工抄表了。"
+      },
+      {
+        "particle_id": "particle_claim_003",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_003",
+        "comment_id": "norm_004",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "signal_strength": 0.75,
+        "excerpt": "官方企业版 3 天上线 Agent，扫码私信领取 deploy 方案。"
+      },
+      {
+        "particle_id": "particle_claim_004",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_001",
+        "claim_id": "claim_004",
+        "comment_id": "norm_005",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "signal_strength": 0.87,
+        "excerpt": "Agent 真正有用的是接住重复流程，不是幻想一夜全自动。"
+      },
+      {
+        "particle_id": "particle_claim_005",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_005",
+        "comment_id": "norm_006",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "signal_strength": 0.91,
+        "excerpt": "Agent 接工单系统和 API 以后，值班同学少了很多复制粘贴。"
+      },
+      {
+        "particle_id": "particle_claim_006",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_006",
+        "comment_id": "norm_007",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "signal_strength": 0.99,
+        "excerpt": "如果先把 webhook、CRM、审批流串起来，Agent 的 ROI 会比聊天助手更快体现。"
+      },
+      {
+        "particle_id": "particle_claim_007",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_007",
+        "comment_id": "norm_008",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "signal_strength": 0.88,
+        "excerpt": "Agent 接 CRM 后，线索分发和工单回写终于不用人工抄表了。"
+      },
+      {
+        "particle_id": "particle_claim_008",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_008",
+        "comment_id": "norm_010",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "signal_strength": 0.76,
+        "excerpt": "行业里已经很明显了，集成型 Agent 比孤立 demo 更容易形成稳定价值。"
+      },
+      {
+        "particle_id": "particle_claim_009",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_009",
+        "comment_id": "norm_011",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "signal_strength": 0.93,
+        "excerpt": "模型效果够用了，真正卡住 Agent 扩张的是 deploy 成本和维护值班。"
+      },
+      {
+        "particle_id": "particle_claim_010",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_010",
+        "comment_id": "norm_012",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "signal_strength": 0.92,
+        "excerpt": "Agent 上线后不是结束，日志、权限、告警、回滚这些运维活才刚开始。"
+      },
+      {
+        "particle_id": "particle_claim_011",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_011",
+        "comment_id": "norm_013",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "signal_strength": 0.72,
+        "excerpt": "预算一算才发现，Agent 真贵。"
+      },
+      {
+        "particle_id": "particle_claim_012",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_012",
+        "comment_id": "norm_014",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "signal_strength": 0.87,
+        "excerpt": "如果没有统一权限和审计，Agent 接再多系统也会被风控卡住。"
+      },
+      {
+        "particle_id": "particle_claim_013",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_013",
+        "comment_id": "norm_016",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "signal_strength": 0.92,
+        "excerpt": "成熟团队会先让 Agent 接审批流和工单，再慢慢放权，不会一步到位。"
+      },
+      {
+        "particle_id": "particle_claim_014",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_014",
+        "comment_id": "norm_017",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "signal_strength": 0.96,
+        "excerpt": "我们把 Agent 接进 CRM、知识库、工单系统以后，客服首响时间真的降下来了。"
+      },
+      {
+        "particle_id": "particle_claim_015",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_015",
+        "comment_id": "norm_018",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "signal_strength": 0.73,
+        "excerpt": "报道里都在吹 Agent，但真正的运维成本经常没人展开讲。"
+      },
+      {
+        "particle_id": "particle_claim_016",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_016",
+        "comment_id": "norm_019",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "signal_strength": 0.87,
+        "excerpt": "Agent 接 CRM 后，线索分发和工单回写终于不用人工抄表了。"
+      },
+      {
+        "particle_id": "particle_claim_017",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_001",
+        "claim_id": "claim_017",
+        "comment_id": "norm_021",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "signal_strength": 0.95,
+        "excerpt": "现在比较稳的打法就是 Agent 先嵌进流程，再逐步扩到更多系统节点。"
+      },
+      {
+        "particle_id": "particle_claim_018",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_018",
+        "comment_id": "norm_022",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "signal_strength": 0.9,
+        "excerpt": "只要 deploy、权限、日志这三件事不收敛，Agent 扩张速度就会被持续拉慢。"
+      },
+      {
+        "particle_id": "particle_claim_019",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "claim_id": "claim_019",
+        "comment_id": "norm_024",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "signal_strength": 0.72,
+        "excerpt": "官方直播回放已上线，欢迎预约 Agent 私有化 deploy 方案。"
+      },
+      {
+        "particle_id": "particle_claim_020",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_001",
+        "claim_id": "claim_020",
+        "comment_id": "norm_025",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "signal_strength": 0.92,
+        "excerpt": "真正能落地的 Agent 不是全自动替代，而是先把重复 SOP 半自动化。"
+      },
+      {
+        "particle_id": "particle_claim_021",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "claim_id": "claim_021",
+        "comment_id": "norm_026",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "signal_strength": 0.98,
+        "excerpt": "我更认同先做半自动，再把 Agent 接 CRM 和审批流，不然运维会炸。"
+      }
+    ],
+    "evidence_clusters": [
+      {
+        "cluster_id": "cluster_st_001_0_vp_001",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_001",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "label": "务实落地线证据簇",
+        "comment_ids": [
+          "norm_001",
+          "norm_005"
+        ],
+        "representative_comment_id": "norm_001"
+      },
+      {
+        "cluster_id": "cluster_st_001_0_vp_002",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "label": "务实落地线证据簇",
+        "comment_ids": [
+          "norm_002"
+        ],
+        "representative_comment_id": "norm_002"
+      },
+      {
+        "cluster_id": "cluster_st_001_1_vp_002",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 1,
+        "bucket_start": "2026-03-11",
+        "label": "务实落地线证据簇",
+        "comment_ids": [
+          "norm_007",
+          "norm_006",
+          "norm_008",
+          "norm_010"
+        ],
+        "representative_comment_id": "norm_007"
+      },
+      {
+        "cluster_id": "cluster_st_001_3_vp_002",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "label": "务实落地线证据簇",
+        "comment_ids": [
+          "norm_017",
+          "norm_016",
+          "norm_019"
+        ],
+        "representative_comment_id": "norm_017"
+      },
+      {
+        "cluster_id": "cluster_st_001_4_vp_001",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_001",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "label": "务实落地线证据簇",
+        "comment_ids": [
+          "norm_021",
+          "norm_025"
+        ],
+        "representative_comment_id": "norm_021"
+      },
+      {
+        "cluster_id": "cluster_st_001_4_vp_002",
+        "storyline_id": "st_001",
+        "viewpoint_id": "vp_002",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "label": "务实落地线证据簇",
+        "comment_ids": [
+          "norm_026"
+        ],
+        "representative_comment_id": "norm_026"
+      },
+      {
+        "cluster_id": "cluster_st_002_0_vp_003",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 0,
+        "bucket_start": "2026-03-10",
+        "label": "部署摩擦线证据簇",
+        "comment_ids": [
+          "norm_004"
+        ],
+        "representative_comment_id": "norm_004"
+      },
+      {
+        "cluster_id": "cluster_st_002_2_vp_003",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 2,
+        "bucket_start": "2026-03-12",
+        "label": "部署摩擦线证据簇",
+        "comment_ids": [
+          "norm_011",
+          "norm_012",
+          "norm_014",
+          "norm_013"
+        ],
+        "representative_comment_id": "norm_011"
+      },
+      {
+        "cluster_id": "cluster_st_002_3_vp_003",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 3,
+        "bucket_start": "2026-03-13",
+        "label": "部署摩擦线证据簇",
+        "comment_ids": [
+          "norm_018"
+        ],
+        "representative_comment_id": "norm_018"
+      },
+      {
+        "cluster_id": "cluster_st_002_4_vp_003",
+        "storyline_id": "st_002",
+        "viewpoint_id": "vp_003",
+        "bucket_index": 4,
+        "bucket_start": "2026-03-14",
+        "label": "部署摩擦线证据簇",
+        "comment_ids": [
+          "norm_022",
+          "norm_024"
+        ],
+        "representative_comment_id": "norm_022"
+      }
+    ]
+  },
+  "reasoning": {
+    "heat_index_formula": {
+      "version": "2026-03-24.v1",
+      "target_metric": "storylineHeatIndex",
+      "weights": {
+        "volume_component": 0.45,
+        "support_component": 0.25,
+        "source_quality_component": 0.2,
+        "recency_component": 0.1
+      },
+      "description": "storylineHeatIndex is a normalized 0-100 score derived from volume, support strength, source quality, and recency."
+    },
+    "model_reasoning": [
+      {
+        "storyline_id": "st_001",
+        "model_id": "bass_diffusion",
+        "assumptions": [
+          "流程接入继续扩散",
+          "系统集成节点继续增加"
+        ],
+        "explanation": "Agent 正在沿流程接入与系统集成加速落地 在 Bass 视角下仍处于扩散阶段，后续热度会沿相邻业务场景继续外溢。",
+        "confidence_note": "务实落地线 的当前证据较扎实，但越往后预测不确定性越高。",
+        "comparison_summary": "Bass 相比 Gompertz 更乐观，认为扩散速度还没有触顶。"
+      },
+      {
+        "storyline_id": "st_001",
+        "model_id": "gompertz",
+        "assumptions": [
+          "摩擦不会立刻消失",
+          "后续增长会更快进入平台期"
+        ],
+        "explanation": "Agent 正在沿流程接入与系统集成加速落地 在 Gompertz 视角下会更早进入放缓阶段，增长仍在但斜率会收敛。",
+        "confidence_note": "务实落地线 的未来走势更容易受部署治理与预算收紧影响，置信度中等偏低。",
+        "comparison_summary": "Gompertz 相比 Bass 更保守，认为热度会更早趋稳。"
+      },
+      {
+        "storyline_id": "st_002",
+        "model_id": "bass_diffusion",
+        "assumptions": [
+          "流程接入继续扩散",
+          "系统集成节点继续增加"
+        ],
+        "explanation": "部署与维护压力继续压制 Agent 扩张 在 Bass 视角下仍处于扩散阶段，后续热度会沿相邻业务场景继续外溢。",
+        "confidence_note": "部署摩擦线 的当前证据较扎实，但越往后预测不确定性越高。",
+        "comparison_summary": "Bass 相比 Gompertz 更乐观，认为扩散速度还没有触顶。"
+      },
+      {
+        "storyline_id": "st_002",
+        "model_id": "gompertz",
+        "assumptions": [
+          "摩擦不会立刻消失",
+          "后续增长会更快进入平台期"
+        ],
+        "explanation": "部署与维护压力继续压制 Agent 扩张 在 Gompertz 视角下会更早进入放缓阶段，增长仍在但斜率会收敛。",
+        "confidence_note": "部署摩擦线 的未来走势更容易受部署治理与预算收紧影响，置信度中等偏低。",
+        "comparison_summary": "Gompertz 相比 Bass 更保守，认为热度会更早趋稳。"
+      }
+    ],
+    "traceability": [
+      {
+        "storyline_id": "st_001",
+        "viewpoint_ids": [
+          "vp_001",
+          "vp_002"
+        ],
+        "claim_ids": [
+          "claim_001",
+          "claim_004",
+          "claim_017",
+          "claim_020",
+          "claim_002",
+          "claim_005",
+          "claim_006",
+          "claim_007",
+          "claim_008",
+          "claim_013",
+          "claim_014",
+          "claim_016",
+          "claim_021"
+        ],
+        "comment_ids": [
+          "norm_001",
+          "norm_005",
+          "norm_021",
+          "norm_025",
+          "norm_002",
+          "norm_006",
+          "norm_007",
+          "norm_008",
+          "norm_010",
+          "norm_016",
+          "norm_017",
+          "norm_019",
+          "norm_026"
+        ]
+      },
+      {
+        "storyline_id": "st_002",
+        "viewpoint_ids": [
+          "vp_003"
+        ],
+        "claim_ids": [
+          "claim_003",
+          "claim_009",
+          "claim_010",
+          "claim_011",
+          "claim_012",
+          "claim_015",
+          "claim_018",
+          "claim_019"
+        ],
+        "comment_ids": [
+          "norm_004",
+          "norm_011",
+          "norm_012",
+          "norm_013",
+          "norm_014",
+          "norm_018",
+          "norm_022",
+          "norm_024"
+        ]
+      }
+    ]
+  }
+}

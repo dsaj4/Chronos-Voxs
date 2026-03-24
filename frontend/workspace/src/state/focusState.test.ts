@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createPublishedBundleFixture } from "../test/createPublishedBundleFixture";
 import {
+  createInitialFocusState,
   createDefaultCameraStateByView,
   focusReducer,
   type WorkspaceFocusAction,
@@ -7,6 +9,17 @@ import {
 } from "./focusState";
 
 describe("focusReducer", () => {
+  it("creates an initial focus state from the primary storyline latest bucket", () => {
+    const bundle = createPublishedBundleFixture();
+
+    const state = createInitialFocusState(bundle);
+
+    expect(state.activeStorylineIds).toEqual(["st_001"]);
+    expect(state.activeViewpointId).toBe("vp_003");
+    expect(state.activeBucketIndex).toBe(1);
+    expect(state.selectedModelId).toBe("bass_diffusion");
+  });
+
   it("replaces stale viewpoint and bucket state when storyline focus changes", () => {
     const initialState: WorkspaceFocusState = {
       activePrimaryView: "storylines",
