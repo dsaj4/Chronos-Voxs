@@ -420,14 +420,96 @@ button {
   color: var(--cv-text-secondary);
 }
 
+.detail-panel__focus-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-panel__focus-item,
+.detail-panel__section {
+  border: 1px solid rgba(86, 204, 242, 0.08);
+  border-radius: 18px;
+  background: rgba(9, 15, 22, 0.62);
+}
+
+.detail-panel__focus-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.detail-panel__focus-label {
+  color: var(--cv-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+.detail-panel__focus-value {
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 .detail-panel__body {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .detail-panel__section {
+  overflow: hidden;
+}
+
+.detail-panel__section-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-panel__section-toggle:hover {
+  background: rgba(86, 204, 242, 0.03);
+}
+
+.detail-panel__section-copy {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.detail-panel__section-summary {
+  margin: 0;
+  color: var(--cv-text-muted);
+  font-size: 0.84rem;
+}
+
+.detail-panel__section-state {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(86, 204, 242, 0.1);
+  color: var(--cv-text-muted);
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+.detail-panel__section--open .detail-panel__section-state {
+  border-color: rgba(86, 204, 242, 0.22);
+  color: var(--cv-focus);
+  background: rgba(86, 204, 242, 0.08);
+}
+
+.detail-panel__section-body {
   display: grid;
   gap: 10px;
+  padding: 0 14px 14px;
 }
 
 .detail-panel__section-title {
@@ -1575,6 +1657,10 @@ button {
 @media (max-width: 720px) {
   .workspace-shell {
     padding: 14px;
+  }
+
+  .detail-panel__focus-strip {
+    grid-template-columns: 1fr;
   }
 
   .detail-panel__model-switcher {
