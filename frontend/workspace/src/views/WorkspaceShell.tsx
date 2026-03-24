@@ -1,13 +1,20 @@
+import { useEffect, useMemo, useState } from "react";
+import { StorylineList } from "../components/StorylineList";
+import { ViewStatusCard } from "../components/ViewStatusCard";
+import { formatBucketStart, getPublishedForecastSummary } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
+import {
+  getPrimaryActiveStorylineId,
+  getScopedEvidenceState,
+  getScopedRelationshipState,
+  type ScopedEvidenceState,
+  type ScopedRelationshipState
+} from "../state/focusSelectors";
 import type { PrimaryViewKey, WorkspaceFocusState } from "../state/focusState";
-import { getPrimaryActiveStorylineId, getScopedEvidenceState, getScopedRelationshipState } from "../state/focusSelectors";
 import { DetailPanel } from "./DetailPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { RelationshipPanel } from "./RelationshipPanel";
-import { StorylineList } from "../components/StorylineList";
 import { StorylinePanel } from "./StorylinePanel";
-import { ViewStatusCard } from "../components/ViewStatusCard";
-import { formatBucketStart, getPublishedForecastSummary } from "../forecast/seriesModels";
 
 interface WorkspaceShellProps {
   bundle: PublishedBundle;
@@ -17,6 +24,37 @@ interface WorkspaceShellProps {
   onModelChange: (modelId: WorkspaceFocusState["selectedModelId"]) => void;
 }
 
+interface LocalFocusOverride {
+  storylineId: string | null;
+  viewpointId: string | null;
+  bucketIndex: number | null;
+  impact: string;
+}
+
+function getWorkspaceImpactSummary(
+  activeView: PrimaryViewKey,
+  storylineTitle: string | null,
+  relationshipViewpointTitle: string,
+  relationshipScope: ScopedRelationshipState,
+  evidenceScope: ScopedEvidenceState
+): string {
+  if (activeView === "relationships") {
+    return relationshipScope.resolvedBucketIndex !== null
+      ? `${`\u5173\u7cfb\u89c6\u56fe\u805a\u7126`} ${relationshipViewpointTitle} / ${`\u6876`} ${relationshipScope.resolvedBucketIndex}`
+      : `\u5173\u7cfb\u89c6\u56fe\u7b49\u5f85\u7126\u70b9`;
+  }
+
+  if (activeView === "evidence") {
+    return evidenceScope.resolvedBucketIndex !== null
+      ? `${`\u8bc1\u636e\u89c6\u56fe\u805a\u7126`} ${`\u6876`} ${evidenceScope.resolvedBucketIndex} / ${evidenceScope.evidenceClusters.length} ${`\u7c07`}`
+      : `\u8bc1\u636e\u89c6\u56fe\u6682\u65e0\u5207\u7247`;
+  }
+
+  return storylineTitle
+    ? `${`\u4e3b\u7ebf\u89c6\u56fe\u805a\u7126`} ${storylineTitle}`
+    : `\u4e3b\u7ebf\u89c6\u56fe\u7b49\u5f85\u7126\u70b9`;
+}
+
 export function WorkspaceShell({
   bundle,
   focus,
@@ -24,26 +62,62 @@ export function WorkspaceShell({
   onStorylineSelect,
   onModelChange
 }: WorkspaceShellProps) {
-  const activeStorylineId = getPrimaryActiveStorylineId(focus);
+  const [localOverride, setLocalOverride] = useState<LocalFocusOverride | null>(null);
+  const externalFocusKey = `${focus.activeStorylineIds.join(",")}::${focus.activeViewpointId ?? ""}::${focus.activeBucketIndex ?? ""}`;
+
+  useEffect(() => {
+    setLocalOverride(null);
+  }, [externalFocusKey]);
+
+  const effectiveFocus = useMemo<WorkspaceFocusState>(() => {
+    if (!localOverride) {
+      return focus;
+    }
+
+    return {
+      ...focus,
+      activeStorylineIds: localOverride.storylineId ? [localOverride.storylineId] : focus.activeStorylineIds,
+      activeViewpointId: localOverride.viewpointId,
+      activeBucketIndex: localOverride.bucketIndex,
+      lastInteractionImpact: localOverride.impact
+    };
+  }, [focus, localOverride]);
+
+  const activeStorylineId = getPrimaryActiveStorylineId(effectiveFocus);
   const selectedStoryline =
     bundle.stream.storylines.find((storyline) => storyline.storyline_id === activeStorylineId) ??
     bundle.stream.storylines[0] ??
     null;
-  const relationshipScope = getScopedRelationshipState(bundle, focus);
-  const evidenceScope = getScopedEvidenceState(bundle, focus);
+  const relationshipScope = getScopedRelationshipState(bundle, effectiveFocus);
+  const evidenceScope = getScopedEvidenceState(bundle, effectiveFocus);
   const activeForecastSummary =
     selectedStoryline ? getPublishedForecastSummary(bundle, selectedStoryline.storyline_id) : null;
   const activeModelLabel =
-    bundle.meta.available_models.find((model) => model.id === focus.selectedModelId)?.label ?? focus.selectedModelId;
+    bundle.meta.available_models.find((model) => model.id === effectiveFocus.selectedModelId)?.label ??
+    effectiveFocus.selectedModelId;
+  const relationshipViewpointTitle =
+    relationshipScope.displayViewpointId === null
+      ? `\u65e0\u7126\u70b9`
+      : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === relationshipScope.displayViewpointId)?.title ??
+        relationshipScope.displayViewpointId;
+  const impactSummary =
+    localOverride?.impact ??
+    getWorkspaceImpactSummary(
+      effectiveFocus.activePrimaryView,
+      selectedStoryline?.title ?? null,
+      relationshipViewpointTitle,
+      relationshipScope,
+      evidenceScope
+    );
 
   return (
     <div className="workspace-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Chronos-Vox 分析工作台</p>
+          <p className="eyebrow">{`Chronos-Vox \u5206\u6790\u5de5\u4f5c\u53f0`}</p>
           <h1>{bundle.meta.case_title}</h1>
           <p className="muted">
-            发布 bundle {bundle.meta.fixture_id} · 契约 {bundle.meta.contract_version}
+            {`${`\u53d1\u5e03`} bundle ${bundle.meta.fixture_id} / ${`\u5408\u7ea6`} ${bundle.meta.contract_version}`}
           </p>
         </div>
         <div className="topbar__meta">
@@ -52,105 +126,126 @@ export function WorkspaceShell({
               <button
                 key={model.id}
                 type="button"
-                className={`pill ${model.id === focus.selectedModelId ? "pill--active" : ""}`}
+                className={`pill ${model.id === effectiveFocus.selectedModelId ? "pill--active" : ""}`}
                 onClick={() => onModelChange(model.id)}
               >
                 {model.label}
               </button>
             ))}
           </div>
-          <p className="muted">{focus.lastInteractionImpact}</p>
+          <p className="muted">{impactSummary}</p>
         </div>
       </header>
+
       <nav className="view-tabs" aria-label="Primary views">
         {[
-          { id: "storylines", label: "主线" },
-          { id: "relationships", label: "关系" },
-          { id: "evidence", label: "证据" }
+          { id: "storylines", label: `\u4e3b\u7ebf` },
+          { id: "relationships", label: `\u5173\u7cfb` },
+          { id: "evidence", label: `\u8bc1\u636e` }
         ].map((item) => (
           <button
             key={item.id}
             type="button"
-            className={`tab ${focus.activePrimaryView === item.id ? "tab--active" : ""}`}
+            className={`tab ${effectiveFocus.activePrimaryView === item.id ? "tab--active" : ""}`}
             onClick={() => onPrimaryViewChange(item.id as PrimaryViewKey)}
           >
             {item.label}
           </button>
         ))}
       </nav>
+
       <main className="workspace-grid">
         <section className="left-column">
           <div className="panel">
             <div className="panel__heading">
               <div>
-                <p className="eyebrow">主线列表</p>
-                <h3>已发布主线</h3>
+                <p className="eyebrow">{`\u4e3b\u7ebf\u5217\u8868`}</p>
+                <h3>{`\u5df2\u53d1\u5e03\u4e3b\u7ebf`}</h3>
               </div>
-              <span className="muted">选择一条主线，工作台会同步主线、观点与时间桶焦点。</span>
+              <span className="muted">
+                {`\u5207\u6362\u4e3b\u7ebf\u4f1a\u66f4\u65b0\u5171\u4eab\u7126\u70b9\uff0c\u5173\u7cfb\u4e0e\u8bc1\u636e\u89c6\u56fe\u8ddf\u968f\u540c\u6b65\u3002`}
+              </span>
             </div>
             <StorylineList
               storylines={bundle.stream.storylines}
               activeStorylineId={activeStorylineId}
-              onSelect={onStorylineSelect}
+              onSelect={(storylineId) => {
+                setLocalOverride(null);
+                onStorylineSelect(storylineId);
+              }}
             />
           </div>
-          {focus.activePrimaryView === "storylines" ? (
+
+          {effectiveFocus.activePrimaryView === "storylines" ? (
             <StorylinePanel
               bundle={bundle}
               storyline={selectedStoryline}
-              selectedModelId={focus.selectedModelId}
+              selectedModelId={effectiveFocus.selectedModelId}
               onModelChange={onModelChange}
             />
-          ) : focus.activePrimaryView === "relationships" ? (
-            <RelationshipPanel bundle={bundle} focus={focus} scope={relationshipScope} />
+          ) : effectiveFocus.activePrimaryView === "relationships" ? (
+            <RelationshipPanel
+              bundle={bundle}
+              scope={relationshipScope}
+              onNodeSelect={({ viewpointId, bucketIndex }) => {
+                const viewpointTitle =
+                  bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === viewpointId)?.title ?? viewpointId;
+                setLocalOverride({
+                  storylineId: relationshipScope.storylineId,
+                  viewpointId,
+                  bucketIndex,
+                  impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`
+                });
+              }}
+            />
           ) : (
             <EvidencePanel bundle={bundle} scope={evidenceScope} />
           )}
         </section>
+
         <aside className="right-column">
           <DetailPanel
             bundle={bundle}
-            focus={focus}
+            focus={effectiveFocus}
             relationshipScope={relationshipScope}
             evidenceScope={evidenceScope}
+            impactSummary={impactSummary}
           />
           <div className="preview-rail">
             <ViewStatusCard
-              label="主线"
-              summary={selectedStoryline ? selectedStoryline.title : "未选主线"}
+              label={`\u4e3b\u7ebf`}
+              summary={selectedStoryline ? selectedStoryline.title : `\u672a\u9009\u4e3b\u7ebf`}
               detail={
                 activeForecastSummary
-                  ? `${activeModelLabel} · ${formatBucketStart(
+                  ? `${activeModelLabel} / ${formatBucketStart(
                       activeForecastSummary.bucket_start,
                       activeForecastSummary.bucket_granularity
                     )}`
-                  : `当前模型 ${activeModelLabel}`
+                  : `${`\u5f53\u524d\u6a21\u578b`} ${activeModelLabel}`
               }
-              isActive={focus.activePrimaryView === "storylines"}
+              isActive={effectiveFocus.activePrimaryView === "storylines"}
               onSelect={() => onPrimaryViewChange("storylines")}
             />
             <ViewStatusCard
-              label="关系"
-              summary={`${relationshipScope.viewpointRelations.length} 条观点关系 / ${relationshipScope.storylineRelations.length} 条主线关系`}
+              label={`\u5173\u7cfb`}
+              summary={relationshipViewpointTitle}
               detail={
-                relationshipScope.fallbackMessage ??
-                (relationshipScope.resolvedBucketIndex !== null
-                  ? `聚焦桶 ${relationshipScope.resolvedBucketIndex}`
-                  : "当前无关系上下文")
+                relationshipScope.resolvedBucketIndex !== null
+                  ? `${`\u6876`} ${relationshipScope.resolvedBucketIndex} / ${relationshipScope.lanes.length} ${`\u6761\u6cf3\u9053`}`
+                  : `\u5f53\u524d\u6ca1\u6709\u5173\u7cfb\u4e0a\u4e0b\u6587`
               }
-              isActive={focus.activePrimaryView === "relationships"}
+              isActive={effectiveFocus.activePrimaryView === "relationships"}
               onSelect={() => onPrimaryViewChange("relationships")}
             />
             <ViewStatusCard
-              label="证据"
-              summary={`${evidenceScope.evidenceClusters.length} 个证据簇 / ${evidenceScope.particles.length} 个粒子`}
+              label={`\u8bc1\u636e`}
+              summary={`${evidenceScope.evidenceClusters.length} ${`\u4e2a\u7c07`} / ${evidenceScope.particles.length} ${`\u4e2a\u7c92\u5b50`}`}
               detail={
-                evidenceScope.fallbackMessage ??
-                (evidenceScope.resolvedBucketIndex !== null
-                  ? `聚焦桶 ${evidenceScope.resolvedBucketIndex}`
-                  : "当前无证据")
+                evidenceScope.resolvedBucketIndex !== null
+                  ? `${`\u6876`} ${evidenceScope.resolvedBucketIndex}`
+                  : `\u5f53\u524d\u6ca1\u6709\u8bc1\u636e\u5207\u7247`
               }
-              isActive={focus.activePrimaryView === "evidence"}
+              isActive={effectiveFocus.activePrimaryView === "evidence"}
               onSelect={() => onPrimaryViewChange("evidence")}
             />
           </div>

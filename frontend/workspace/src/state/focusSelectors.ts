@@ -2,12 +2,11 @@ import type { PublishedBundle, PublishedViewpoint } from "../loader/publishedTyp
 import type { WorkspaceFocusState } from "./focusState";
 
 type PublishedStorylineSnapshot = PublishedBundle["stream"]["storyline_snapshots"][number];
+type PublishedViewpointSnapshot = PublishedBundle["neural_map"]["viewpoint_snapshots"][number];
 type PublishedViewpointRelation = PublishedBundle["neural_map"]["viewpoint_relations"][number];
 type PublishedStorylineRelation = PublishedBundle["neural_map"]["storyline_relations"][number];
 type PublishedEvidenceParticle = PublishedBundle["particle_field"]["particles"][number];
 type PublishedEvidenceCluster = PublishedBundle["particle_field"]["evidence_clusters"][number];
-type PublishedViewpointSnapshot = PublishedBundle["neural_map"]["viewpoint_snapshots"][number];
-type PublishedStoryline = PublishedBundle["stream"]["storylines"][number];
 
 export interface ResolvedStorylineFocus {
   storylineId: string;
@@ -16,6 +15,48 @@ export interface ResolvedStorylineFocus {
   bucketIndex: number | null;
   bucketStart: string | null;
   message: string;
+}
+
+export interface RelationshipTimelineBucket {
+  bucketIndex: number;
+  bucketStart: string;
+  storylineHeatIndex: number;
+  isActiveBucket: boolean;
+  hasDisplayViewpoint: boolean;
+  hasRequestedViewpoint: boolean;
+}
+
+export interface RelationshipLanePoint {
+  bucketIndex: number;
+  bucketStart: string;
+  hasSnapshot: boolean;
+  supportCount: number | null;
+  heatIndex: number | null;
+  isActiveBucket: boolean;
+  isCurrentViewpoint: boolean;
+  relationWeight: number | null;
+}
+
+export interface RelationshipLane {
+  viewpointId: string;
+  title: string;
+  topicTag: string;
+  isCurrent: boolean;
+  isPeer: boolean;
+  isExternalAnchor: boolean;
+  relationTypeHint: PublishedViewpointRelation["relation_type"] | null;
+  score: number;
+  points: RelationshipLanePoint[];
+}
+
+export interface RelationshipAnchor {
+  id: string;
+  label: string;
+  kind: "viewpoint" | "storyline";
+  direction: "incoming" | "outgoing";
+  relationType: string;
+  weight: number;
+  summary: string;
 }
 
 export interface ScopedRelationshipState {
@@ -29,43 +70,9 @@ export interface ScopedRelationshipState {
   viewpointIdsInScope: string[];
   viewpointRelations: PublishedViewpointRelation[];
   storylineRelations: PublishedStorylineRelation[];
-  timelineBuckets: Array<{
-    bucketIndex: number;
-    bucketStart: string;
-    storylineHeatIndex: number;
-    isActiveBucket: boolean;
-    hasDisplayViewpoint: boolean;
-    hasRequestedViewpoint: boolean;
-  }>;
-  lanes: Array<{
-    viewpointId: string;
-    title: string;
-    topicTag: string;
-    isCurrent: boolean;
-    isPeer: boolean;
-    isExternalAnchor: boolean;
-    relationTypeHint: PublishedViewpointRelation["relation_type"] | null;
-    score: number;
-    points: Array<{
-      bucketIndex: number;
-      bucketStart: string;
-      hasSnapshot: boolean;
-      supportCount: number | null;
-      heatIndex: number | null;
-      isActiveBucket: boolean;
-      isCurrentViewpoint: boolean;
-      relationWeight: number | null;
-    }>;
-  }>;
-  externalAnchors: Array<{
-    id: string;
-    label: string;
-    kind: "viewpoint" | "storyline";
-    direction: "incoming" | "outgoing";
-    relationType: string;
-    weight: number;
-    summary: string;
-  }>;
+  timelineBuckets: RelationshipTimelineBucket[];
+  lanes: RelationshipLane[];
+  externalAnchors: RelationshipAnchor[];
   didFallback: boolean;
   fallbackMessage: string | null;
 }
@@ -86,8 +93,8 @@ export function getPrimaryActiveStorylineId(focus: Pick<WorkspaceFocusState, "ac
   return focus.activeStorylineIds[0] ?? null;
 }
 
-function uniqueIds(ids: string[]): string[] {
-  return [...new Set(ids.filter(Boolean))];
+function uniqueIds(ids: Array<string | null | undefined>): string[] {
+  return [...new Set(ids.filter((value): value is string => Boolean(value)))];
 }
 
 function getStorylineSnapshots(bundle: PublishedBundle, storylineId: string): PublishedStorylineSnapshot[] {
@@ -100,27 +107,72 @@ function getViewpoint(bundle: PublishedBundle, viewpointId: string): PublishedVi
   return bundle.neural_map.viewpoints.find((viewpoint) => viewpoint.viewpoint_id === viewpointId);
 }
 
-function getViewpointSnapshotSupport(bundle: PublishedBundle, viewpointId: string, bucketIndex: number | null): number {
-  if (bucketIndex === null) {
-    return -1;
-  }
+function getViewpointSnapshot(
+  bundle: PublishedBundle,
+  viewpointId: string,
+  bucketIndex: number
+): PublishedViewpointSnapshot | null {
   return (
     bundle.neural_map.viewpoint_snapshots.find(
       (snapshot) => snapshot.viewpoint_id === viewpointId && snapshot.bucket_index === bucketIndex
-    )?.support_count ?? -1
+    ) ?? null
   );
 }
 
-function sortViewpointIdsByStrength(
+function getViewpointSnapshotSupport(
+  bundle: PublishedBundle,
+  viewpointId: string,
+  bucketIndex: number | null
+): number {
+  if (bucketIndex === null) {
+    return -1;
+  }
+  return getViewpointSnapshot(bundle, viewpointId, bucketIndex)?.support_count ?? -1;
+}
+
+function getViewpointRelation(
+  bundle: PublishedBundle,
+  leftViewpointId: string | null,
+  rightViewpointId: string
+): PublishedViewpointRelation | null {
+  if (!leftViewpointId) {
+    return null;
+  }
+  return (
+    bundle.neural_map.viewpoint_relations.find(
+      (relation) =>
+        (relation.source_viewpoint_id === leftViewpointId && relation.target_viewpoint_id === rightViewpointId) ||
+        (relation.source_viewpoint_id === rightViewpointId && relation.target_viewpoint_id === leftViewpointId)
+    ) ?? null
+  );
+}
+
+function getViewpointRelationWeight(
+  bundle: PublishedBundle,
+  leftViewpointId: string | null,
+  rightViewpointId: string
+): number {
+  return getViewpointRelation(bundle, leftViewpointId, rightViewpointId)?.weight ?? 0;
+}
+
+function rankViewpointIds(
   bundle: PublishedBundle,
   viewpointIds: string[],
-  bucketIndex: number | null
+  bucketIndex: number | null,
+  anchorViewpointId: string | null
 ): string[] {
   return uniqueIds(viewpointIds).sort((leftId, rightId) => {
     const left = getViewpoint(bundle, leftId);
     const right = getViewpoint(bundle, rightId);
+    const relationDelta =
+      getViewpointRelationWeight(bundle, anchorViewpointId, rightId) -
+      getViewpointRelationWeight(bundle, anchorViewpointId, leftId);
+    if (relationDelta !== 0) {
+      return relationDelta;
+    }
     const bucketSupportDelta =
-      getViewpointSnapshotSupport(bundle, rightId, bucketIndex) - getViewpointSnapshotSupport(bundle, leftId, bucketIndex);
+      getViewpointSnapshotSupport(bundle, rightId, bucketIndex) -
+      getViewpointSnapshotSupport(bundle, leftId, bucketIndex);
     if (bucketSupportDelta !== 0) {
       return bucketSupportDelta;
     }
@@ -143,11 +195,25 @@ function getSnapshotCandidateViewpointIds(
   if (!snapshot) {
     return [];
   }
-  return sortViewpointIdsByStrength(
+  return rankViewpointIds(
     bundle,
     [...snapshot.top_viewpoint_ids, ...snapshot.viewpoint_ids],
-    snapshot.bucket_index
+    snapshot.bucket_index,
+    null
   );
+}
+
+function getRequestedStorylineSnapshot(
+  snapshots: PublishedStorylineSnapshot[],
+  requestedBucketIndex: number | null
+): PublishedStorylineSnapshot | null {
+  if (!snapshots.length) {
+    return null;
+  }
+  if (requestedBucketIndex === null) {
+    return snapshots.at(-1) ?? null;
+  }
+  return snapshots.find((snapshot) => snapshot.bucket_index === requestedBucketIndex) ?? null;
 }
 
 function findNearestSnapshot(
@@ -175,195 +241,119 @@ function findNearestSnapshot(
   })[0];
 }
 
-function getRequestedStorylineSnapshot(
-  snapshots: PublishedStorylineSnapshot[],
-  requestedBucketIndex: number | null
-): PublishedStorylineSnapshot | null {
-  if (!snapshots.length) {
-    return null;
-  }
-  if (requestedBucketIndex === null) {
-    return snapshots.at(-1) ?? null;
-  }
-  return snapshots.find((snapshot) => snapshot.bucket_index === requestedBucketIndex) ?? null;
-}
-
 function getStorylineTitle(bundle: PublishedBundle, storylineId: string): string {
   return (
     bundle.stream.storylines.find((storyline) => storyline.storyline_id === storylineId)?.title ?? storylineId
   );
 }
 
-function getViewpointSnapshot(
-  bundle: PublishedBundle,
-  viewpointId: string,
-  bucketIndex: number
-): PublishedViewpointSnapshot | null {
-  return (
-    bundle.neural_map.viewpoint_snapshots.find(
-      (snapshot) => snapshot.viewpoint_id === viewpointId && snapshot.bucket_index === bucketIndex
-    ) ?? null
-  );
+function getTraceabilityViewpointIds(bundle: PublishedBundle, storylineId: string): string[] {
+  return bundle.reasoning.traceability.find((entry) => entry.storyline_id === storylineId)?.viewpoint_ids ?? [];
 }
 
-function getViewpointSnapshotHeat(
-  bundle: PublishedBundle,
-  viewpointId: string,
-  bucketIndex: number
-): number {
-  return getViewpointSnapshot(bundle, viewpointId, bucketIndex)?.heat_index ?? -1;
-}
-
-function getViewpointSnapshotSupportCount(
-  bundle: PublishedBundle,
-  viewpointId: string,
-  bucketIndex: number
-): number {
-  return getViewpointSnapshot(bundle, viewpointId, bucketIndex)?.support_count ?? -1;
-}
-
-function getViewpointRelationWeight(
-  bundle: PublishedBundle,
-  sourceViewpointId: string,
-  targetViewpointId: string
-): number {
-  const directRelation = bundle.neural_map.viewpoint_relations.find(
-    (relation) =>
-      (relation.source_viewpoint_id === sourceViewpointId && relation.target_viewpoint_id === targetViewpointId) ||
-      (relation.source_viewpoint_id === targetViewpointId && relation.target_viewpoint_id === sourceViewpointId)
-  );
-  return directRelation?.weight ?? 0;
-}
-
-function getTimelineLaneScore(
-  bundle: PublishedBundle,
-  viewpointId: string,
-  displayViewpointId: string | null,
-  bucketIndex: number | null
-): number {
-  const viewpoint = getViewpoint(bundle, viewpointId);
-  const snapshotSupport = bucketIndex === null ? -1 : getViewpointSnapshotSupport(bundle, viewpointId, bucketIndex);
-  const totalSupport = viewpoint?.support_count ?? -1;
-  const grounding = viewpoint?.summary_grounding_score ?? -1;
-  const relationWeight =
-    displayViewpointId && displayViewpointId !== viewpointId
-      ? getViewpointRelationWeight(bundle, displayViewpointId, viewpointId)
-      : 1;
-  return relationWeight * 1000 + snapshotSupport * 100 + totalSupport * 10 + grounding;
+function getStorylineViewpointUniverse(bundle: PublishedBundle, storylineId: string): string[] {
+  const snapshots = getStorylineSnapshots(bundle, storylineId);
+  return uniqueIds([
+    ...snapshots.flatMap((snapshot) => [...snapshot.viewpoint_ids, ...snapshot.top_viewpoint_ids]),
+    ...getTraceabilityViewpointIds(bundle, storylineId)
+  ]);
 }
 
 function getLanePoints(
   bundle: PublishedBundle,
+  bucketSnapshots: PublishedStorylineSnapshot[],
   viewpointId: string,
-  bucketIndexes: number[],
   activeBucketIndex: number | null,
   displayViewpointId: string | null
-): Array<{
-  bucketIndex: number;
-  bucketStart: string;
-  hasSnapshot: boolean;
-  supportCount: number | null;
-  heatIndex: number | null;
-  isActiveBucket: boolean;
-  isCurrentViewpoint: boolean;
-  relationWeight: number | null;
-}> {
-  return bucketIndexes.map((bucketIndex) => {
-    const snapshot = getViewpointSnapshot(bundle, viewpointId, bucketIndex);
+): RelationshipLanePoint[] {
+  return bucketSnapshots.map((bucketSnapshot) => {
+    const viewpointSnapshot = getViewpointSnapshot(bundle, viewpointId, bucketSnapshot.bucket_index);
     return {
-      bucketIndex,
-      bucketStart:
-        snapshot?.bucket_start ??
-        bundle.stream.storyline_snapshots.find((item) => item.bucket_index === bucketIndex)?.bucket_start ??
-        "",
-      hasSnapshot: Boolean(snapshot),
-      supportCount: snapshot?.support_count ?? null,
-      heatIndex: snapshot?.heat_index ?? null,
-      isActiveBucket: bucketIndex === activeBucketIndex,
-      isCurrentViewpoint: displayViewpointId === viewpointId,
+      bucketIndex: bucketSnapshot.bucket_index,
+      bucketStart: bucketSnapshot.bucket_start,
+      hasSnapshot: Boolean(viewpointSnapshot),
+      supportCount: viewpointSnapshot?.support_count ?? null,
+      heatIndex: viewpointSnapshot?.heat_index ?? null,
+      isActiveBucket: bucketSnapshot.bucket_index === activeBucketIndex,
+      isCurrentViewpoint: viewpointId === displayViewpointId,
       relationWeight:
-        displayViewpointId && displayViewpointId !== viewpointId
-          ? getViewpointRelationWeight(bundle, displayViewpointId, viewpointId)
-          : 1
+        viewpointId === displayViewpointId
+          ? 1
+          : getViewpointRelationWeight(bundle, displayViewpointId, viewpointId) || null
     };
   });
 }
 
-function getExternalViewpointAnchors(
+function buildExternalAnchors(
   bundle: PublishedBundle,
   storylineId: string,
   laneViewpointIds: string[],
-  displayViewpointId: string | null
-): ScopedRelationshipState["externalAnchors"] {
-  const relatedViewpointIds = new Set<string>();
+  displayViewpointId: string | null,
+  storylineViewpointIds: string[]
+): RelationshipAnchor[] {
+  const anchors: RelationshipAnchor[] = [];
+  const seenIds = new Set<string>();
+
   for (const relation of bundle.neural_map.viewpoint_relations) {
-    const involvesLane =
-      laneViewpointIds.includes(relation.source_viewpoint_id) || laneViewpointIds.includes(relation.target_viewpoint_id);
-    if (!involvesLane) {
+    const sourceInLane = laneViewpointIds.includes(relation.source_viewpoint_id);
+    const targetInLane = laneViewpointIds.includes(relation.target_viewpoint_id);
+    if (sourceInLane === targetInLane) {
       continue;
     }
-    if (!laneViewpointIds.includes(relation.source_viewpoint_id)) {
-      relatedViewpointIds.add(relation.source_viewpoint_id);
+
+    const externalViewpointId = sourceInLane ? relation.target_viewpoint_id : relation.source_viewpoint_id;
+    if (storylineViewpointIds.includes(externalViewpointId) || seenIds.has(externalViewpointId)) {
+      continue;
     }
-    if (!laneViewpointIds.includes(relation.target_viewpoint_id)) {
-      relatedViewpointIds.add(relation.target_viewpoint_id);
-    }
+
+    const viewpoint = getViewpoint(bundle, externalViewpointId);
+    anchors.push({
+      id: externalViewpointId,
+      label: viewpoint?.title ?? externalViewpointId,
+      kind: "viewpoint",
+      direction:
+        displayViewpointId && relation.source_viewpoint_id === displayViewpointId ? "outgoing" : "incoming",
+      relationType: relation.relation_type,
+      weight: relation.weight,
+      summary: relation.rationale
+    });
+    seenIds.add(externalViewpointId);
   }
 
-  const externalAnchors = [...relatedViewpointIds]
-    .map((viewpointId) => {
-      const viewpoint = getViewpoint(bundle, viewpointId);
-      const directRelation = bundle.neural_map.viewpoint_relations.find(
-        (relation) =>
-          (relation.source_viewpoint_id === displayViewpointId && relation.target_viewpoint_id === viewpointId) ||
-          (relation.source_viewpoint_id === viewpointId && relation.target_viewpoint_id === displayViewpointId)
-      );
-      return {
-        id: viewpointId,
-        label: viewpoint?.title ?? viewpointId,
-        kind: "viewpoint" as const,
-        direction:
-          directRelation?.source_viewpoint_id === displayViewpointId ? ("outgoing" as const) : ("incoming" as const),
-        relationType: directRelation?.relation_type ?? "qualifies",
-        weight: directRelation?.weight ?? 0,
-        summary: viewpoint?.summary ?? ""
-      };
-    })
+  for (const relation of bundle.neural_map.storyline_relations) {
+    if (relation.source_storyline_id !== storylineId && relation.target_storyline_id !== storylineId) {
+      continue;
+    }
+
+    const externalStorylineId =
+      relation.source_storyline_id === storylineId ? relation.target_storyline_id : relation.source_storyline_id;
+    const anchorId = `storyline:${externalStorylineId}`;
+    if (seenIds.has(anchorId)) {
+      continue;
+    }
+
+    anchors.push({
+      id: anchorId,
+      label: getStorylineTitle(bundle, externalStorylineId),
+      kind: "storyline",
+      direction: relation.source_storyline_id === storylineId ? "outgoing" : "incoming",
+      relationType: relation.relation_type,
+      weight: relation.weight,
+      summary: relation.rationale
+    });
+    seenIds.add(anchorId);
+  }
+
+  return anchors
     .sort((left, right) => right.weight - left.weight || left.label.localeCompare(right.label))
-    .slice(0, 4);
-
-  const storylineAnchors = bundle.neural_map.storyline_relations
-    .filter(
-      (relation) =>
-        relation.source_storyline_id === storylineId || relation.target_storyline_id === storylineId
-    )
-    .map((relation) => {
-      const otherStorylineId =
-        relation.source_storyline_id === storylineId ? relation.target_storyline_id : relation.source_storyline_id;
-      const storyline = bundle.stream.storylines.find((item) => item.storyline_id === otherStorylineId);
-      return {
-        id: relation.relation_id,
-        label: storyline?.title ?? otherStorylineId,
-        kind: "storyline" as const,
-        direction: relation.source_storyline_id === storylineId ? ("outgoing" as const) : ("incoming" as const),
-        relationType: relation.relation_type,
-        weight: relation.weight,
-        summary: relation.rationale
-      };
-    })
-    .sort((left, right) => right.weight - left.weight)
-    .slice(0, 2);
-
-  return [...externalAnchors, ...storylineAnchors];
+    .slice(0, 6);
 }
 
-function getNearestEvidenceBucket(
-  bucketIndexes: number[],
-  requestedBucketIndex: number | null
-): number | null {
+function getNearestEvidenceBucket(bucketIndexes: number[], requestedBucketIndex: number | null): number | null {
   if (!bucketIndexes.length) {
     return null;
   }
+
   const referenceBucketIndex = requestedBucketIndex ?? bucketIndexes.at(-1) ?? null;
   return [...bucketIndexes].sort((left, right) => {
     const leftDistance = Math.abs((referenceBucketIndex ?? left) - left);
@@ -384,24 +374,20 @@ export function resolveFocusForStoryline(bundle: PublishedBundle, storylineId: s
     snapshots.at(-1) ??
     null;
 
-  const sortedViewpointIds = getSnapshotCandidateViewpointIds(bundle, latestFocusedSnapshot);
   const viewpointId =
-    sortedViewpointIds[0] ??
-    bundle.reasoning.traceability.find((entry) => entry.storyline_id === storylineId)?.viewpoint_ids[0] ??
+    getSnapshotCandidateViewpointIds(bundle, latestFocusedSnapshot)[0] ??
+    getTraceabilityViewpointIds(bundle, storylineId)[0] ??
     null;
-  const bucketIndex = latestFocusedSnapshot?.bucket_index ?? null;
-  const bucketStart = latestFocusedSnapshot?.bucket_start ?? null;
-  const storylineTitle = getStorylineTitle(bundle, storylineId);
 
   return {
     storylineId,
     storylineIds: [storylineId],
     viewpointId,
-    bucketIndex,
-    bucketStart,
+    bucketIndex: latestFocusedSnapshot?.bucket_index ?? null,
+    bucketStart: latestFocusedSnapshot?.bucket_start ?? null,
     message: viewpointId
-      ? `已聚焦主线「${storylineTitle}」的最新强观点。`
-      : `已聚焦主线「${storylineTitle}」。`
+      ? `\u5df2\u805a\u7126 ${getStorylineTitle(bundle, storylineId)} \u7684\u6700\u65b0\u4e3b\u5bfc\u89c2\u70b9`
+      : `\u5df2\u805a\u7126 ${getStorylineTitle(bundle, storylineId)}`
   };
 }
 
@@ -435,23 +421,37 @@ export function getScopedRelationshipState(
   const resolvedSnapshot =
     (requestedSnapshot && getSnapshotCandidateViewpointIds(bundle, requestedSnapshot).length > 0
       ? requestedSnapshot
-      : findNearestSnapshot(snapshots, focus.activeBucketIndex, (snapshot) => getSnapshotCandidateViewpointIds(bundle, snapshot).length > 0)) ??
+      : findNearestSnapshot(
+          snapshots,
+          focus.activeBucketIndex,
+          (snapshot) => getSnapshotCandidateViewpointIds(bundle, snapshot).length > 0
+        )) ??
     requestedSnapshot ??
     snapshots.at(-1) ??
     null;
 
-  const viewpointIdsInScope = getSnapshotCandidateViewpointIds(bundle, resolvedSnapshot);
+  const storylineViewpointIds = getStorylineViewpointUniverse(bundle, storylineId);
   const requestedViewpointId = focus.activeViewpointId;
+  const candidateViewpointIds = getSnapshotCandidateViewpointIds(bundle, resolvedSnapshot);
   const displayViewpointId =
-    requestedViewpointId && viewpointIdsInScope.includes(requestedViewpointId)
-      ? requestedViewpointId
-      : viewpointIdsInScope[0] ?? null;
+    (requestedViewpointId && candidateViewpointIds.includes(requestedViewpointId) ? requestedViewpointId : null) ??
+    candidateViewpointIds[0] ??
+    rankViewpointIds(bundle, storylineViewpointIds, resolvedSnapshot?.bucket_index ?? null, requestedViewpointId)[0] ??
+    null;
 
+  const peerViewpointIds = rankViewpointIds(
+    bundle,
+    storylineViewpointIds.filter((viewpointId) => viewpointId !== displayViewpointId),
+    resolvedSnapshot?.bucket_index ?? null,
+    displayViewpointId
+  ).slice(0, 4);
+
+  const laneViewpointIds = uniqueIds([displayViewpointId, ...peerViewpointIds]);
   const viewpointRelations = bundle.neural_map.viewpoint_relations
     .filter(
       (relation) =>
-        viewpointIdsInScope.includes(relation.source_viewpoint_id) ||
-        viewpointIdsInScope.includes(relation.target_viewpoint_id)
+        laneViewpointIds.includes(relation.source_viewpoint_id) &&
+        laneViewpointIds.includes(relation.target_viewpoint_id)
     )
     .sort((left, right) => {
       const leftPriority =
@@ -469,6 +469,7 @@ export function getScopedRelationshipState(
       }
       return right.weight - left.weight;
     });
+
   const storylineRelations = bundle.neural_map.storyline_relations
     .filter(
       (relation) => relation.source_storyline_id === storylineId || relation.target_storyline_id === storylineId
@@ -481,61 +482,34 @@ export function getScopedRelationshipState(
     storylineHeatIndex: snapshot.storyline_heat_index,
     isActiveBucket: snapshot.bucket_index === (resolvedSnapshot?.bucket_index ?? null),
     hasDisplayViewpoint:
-      displayViewpointId !== null ? Boolean(getViewpointSnapshot(bundle, displayViewpointId, snapshot.bucket_index)) : false,
+      displayViewpointId !== null &&
+      Boolean(getViewpointSnapshot(bundle, displayViewpointId, snapshot.bucket_index)),
     hasRequestedViewpoint:
-      requestedViewpointId !== null
-        ? Boolean(getViewpointSnapshot(bundle, requestedViewpointId, snapshot.bucket_index))
-        : false
+      requestedViewpointId !== null &&
+      Boolean(getViewpointSnapshot(bundle, requestedViewpointId, snapshot.bucket_index))
   }));
 
-  const laneViewpointIds = uniqueIds(
-    [displayViewpointId, ...viewpointIdsInScope, ...viewpointRelations.flatMap((relation) => [relation.source_viewpoint_id, relation.target_viewpoint_id])].filter(
-      (value): value is string => Boolean(value)
-    )
-  )
-    .sort((left, right) => {
-      if (left === displayViewpointId) {
-        return -1;
-      }
-      if (right === displayViewpointId) {
-        return 1;
-      }
-      return (
-        getTimelineLaneScore(bundle, right, displayViewpointId, resolvedSnapshot?.bucket_index ?? null) -
-        getTimelineLaneScore(bundle, left, displayViewpointId, resolvedSnapshot?.bucket_index ?? null)
-      );
-    })
-    .slice(0, 5);
-
-  const lanes = laneViewpointIds.map((viewpointId, index) => {
+  const lanes: RelationshipLane[] = laneViewpointIds.map((viewpointId, laneIndex) => {
     const viewpoint = getViewpoint(bundle, viewpointId);
-    const directRelation = displayViewpointId
-      ? bundle.neural_map.viewpoint_relations.find(
-          (relation) =>
-            (relation.source_viewpoint_id === displayViewpointId && relation.target_viewpoint_id === viewpointId) ||
-            (relation.source_viewpoint_id === viewpointId && relation.target_viewpoint_id === displayViewpointId)
-        )
-      : null;
+    const directRelation = getViewpointRelation(bundle, displayViewpointId, viewpointId);
     return {
       viewpointId,
       title: viewpoint?.title ?? viewpointId,
       topicTag: viewpoint?.topic_tag ?? bundle.meta.topic_tag,
-      isCurrent: index === 0,
-      isPeer: index > 0,
+      isCurrent: laneIndex === 0,
+      isPeer: laneIndex > 0,
       isExternalAnchor: false,
-      relationTypeHint: directRelation?.relation_type ?? null,
-      score: getTimelineLaneScore(bundle, viewpointId, displayViewpointId, resolvedSnapshot?.bucket_index ?? null),
+      relationTypeHint: laneIndex === 0 ? null : directRelation?.relation_type ?? null,
+      score: viewpoint?.support_count ?? 0,
       points: getLanePoints(
         bundle,
+        snapshots,
         viewpointId,
-        snapshots.map((snapshot) => snapshot.bucket_index),
         resolvedSnapshot?.bucket_index ?? null,
         displayViewpointId
       )
     };
   });
-
-  const externalAnchors = getExternalViewpointAnchors(bundle, storylineId, laneViewpointIds, displayViewpointId);
 
   const didBucketFallback =
     requestedSnapshot !== null &&
@@ -544,7 +518,21 @@ export function getScopedRelationshipState(
   const didViewpointFallback =
     requestedViewpointId !== null &&
     displayViewpointId !== null &&
-    requestedViewpointId !== displayViewpointId;
+    requestedViewpointId !== displayViewpointId &&
+    resolvedSnapshot !== null;
+
+  const fallbackMessages: string[] = [];
+  if (didBucketFallback && resolvedSnapshot) {
+    fallbackMessages.push(
+      `\u5f53\u524d\u65f6\u95f4\u6876\u6ca1\u6709\u53ef\u7528\u5173\u7cfb\u4e0a\u4e0b\u6587\uff0c\u5df2\u5207\u5230\u6700\u8fd1\u53ef\u8bfb\u65f6\u95f4\u6876 ${resolvedSnapshot.bucket_index}`
+    );
+  }
+  if (didViewpointFallback && displayViewpointId) {
+    const displayViewpointTitle = getViewpoint(bundle, displayViewpointId)?.title ?? displayViewpointId;
+    fallbackMessages.push(
+      `\u5f53\u524d\u89c2\u70b9\u7f3a\u5e2d\u8be5\u6876\uff0c\u56fe\u5185\u4e34\u65f6\u5207\u5230\u6700\u5f3a\u89c2\u70b9 ${displayViewpointTitle}`
+    );
+  }
 
   return {
     storylineId,
@@ -554,19 +542,20 @@ export function getScopedRelationshipState(
     requestedViewpointId,
     displayViewpointId,
     highlightedViewpointId: displayViewpointId,
-    viewpointIdsInScope,
+    viewpointIdsInScope: laneViewpointIds,
     viewpointRelations,
     storylineRelations,
     timelineBuckets,
     lanes,
-    externalAnchors,
+    externalAnchors: buildExternalAnchors(
+      bundle,
+      storylineId,
+      laneViewpointIds,
+      displayViewpointId,
+      storylineViewpointIds
+    ),
     didFallback: didBucketFallback || didViewpointFallback,
-    fallbackMessage:
-      didBucketFallback && resolvedSnapshot
-        ? `当前时间桶没有关系上下文，已回退到最近有关系的时间桶 ${resolvedSnapshot.bucket_index}。`
-        : didViewpointFallback && displayViewpointId
-          ? `当前时间桶没有当前观点，已在本地切到该桶最强观点 ${displayViewpointId}。`
-          : null
+    fallbackMessage: fallbackMessages.length ? fallbackMessages.join(" / ") : null
   };
 }
 
@@ -605,8 +594,9 @@ export function getScopedEvidenceState(bundle: PublishedBundle, focus: Workspace
 
   const requestedBucketIndex =
     focus.activeBucketIndex ??
-    [...storylineClusters, ...storylineParticles].sort((left, right) => left.bucket_index - right.bucket_index).at(-1)
-      ?.bucket_index ??
+    [...storylineClusters, ...storylineParticles]
+      .sort((left, right) => left.bucket_index - right.bucket_index)
+      .at(-1)?.bucket_index ??
     null;
 
   const requestedScopedEvidence =
@@ -614,23 +604,19 @@ export function getScopedEvidenceState(bundle: PublishedBundle, focus: Workspace
       ? { particles: [] as PublishedEvidenceParticle[], evidenceClusters: [] as PublishedEvidenceCluster[] }
       : filterEvidenceAtBucket(requestedBucketIndex, focus.activeViewpointId);
 
-  const viewpointBucketIndexes = uniqueIds(
-    [
-      ...storylineParticles
-        .filter((particle) => !focus.activeViewpointId || particle.viewpoint_id === focus.activeViewpointId)
-        .map((particle) => String(particle.bucket_index)),
-      ...storylineClusters
-        .filter((cluster) => !focus.activeViewpointId || cluster.viewpoint_id === focus.activeViewpointId)
-        .map((cluster) => String(cluster.bucket_index))
-    ]
-  ).map((value) => Number(value));
+  const viewpointBucketIndexes = uniqueIds([
+    ...storylineParticles
+      .filter((particle) => !focus.activeViewpointId || particle.viewpoint_id === focus.activeViewpointId)
+      .map((particle) => String(particle.bucket_index)),
+    ...storylineClusters
+      .filter((cluster) => !focus.activeViewpointId || cluster.viewpoint_id === focus.activeViewpointId)
+      .map((cluster) => String(cluster.bucket_index))
+  ]).map((value) => Number(value));
 
-  const storylineBucketIndexes = uniqueIds(
-    [
-      ...storylineParticles.map((particle) => String(particle.bucket_index)),
-      ...storylineClusters.map((cluster) => String(cluster.bucket_index))
-    ]
-  ).map((value) => Number(value));
+  const storylineBucketIndexes = uniqueIds([
+    ...storylineParticles.map((particle) => String(particle.bucket_index)),
+    ...storylineClusters.map((cluster) => String(cluster.bucket_index))
+  ]).map((value) => Number(value));
 
   let resolvedBucketIndex = requestedBucketIndex;
   let resolvedViewpointId = focus.activeViewpointId;
@@ -643,13 +629,14 @@ export function getScopedEvidenceState(bundle: PublishedBundle, focus: Workspace
       focus.activeViewpointId !== null
         ? getNearestEvidenceBucket(viewpointBucketIndexes, requestedBucketIndex)
         : null;
+
     if (nearestViewpointBucket !== null) {
       resolvedBucketIndex = nearestViewpointBucket;
       scopedEvidence = filterEvidenceAtBucket(nearestViewpointBucket, focus.activeViewpointId);
       didFallback = requestedBucketIndex !== nearestViewpointBucket;
       fallbackMessage =
         didFallback && focus.activeViewpointId
-          ? `当前时间桶没有该观点的证据，已回退到最近有证据的时间桶 ${nearestViewpointBucket}。`
+          ? `\u5f53\u524d\u65f6\u95f4\u6876\u6ca1\u6709\u8be5\u89c2\u70b9\u8bc1\u636e\uff0c\u5df2\u56de\u9000\u5230\u6700\u8fd1\u6709\u8bc1\u636e\u7684\u65f6\u95f4\u6876 ${nearestViewpointBucket}`
           : null;
     } else {
       const nearestStorylineBucket = getNearestEvidenceBucket(storylineBucketIndexes, requestedBucketIndex);
@@ -657,19 +644,19 @@ export function getScopedEvidenceState(bundle: PublishedBundle, focus: Workspace
         resolvedBucketIndex = nearestStorylineBucket;
         scopedEvidence = filterEvidenceAtBucket(nearestStorylineBucket, null);
         resolvedViewpointId =
-          sortViewpointIdsByStrength(
+          rankViewpointIds(
             bundle,
             [
               ...scopedEvidence.evidenceClusters.map((cluster) => cluster.viewpoint_id),
               ...scopedEvidence.particles.map((particle) => particle.viewpoint_id)
             ],
-            nearestStorylineBucket
+            nearestStorylineBucket,
+            focus.activeViewpointId
           )[0] ?? null;
         didFallback = requestedBucketIndex !== nearestStorylineBucket;
-        fallbackMessage =
-          didFallback && nearestStorylineBucket !== null
-            ? `当前时间桶没有证据，已回退到最近有证据的时间桶 ${nearestStorylineBucket}。`
-            : null;
+        fallbackMessage = didFallback
+          ? `\u5f53\u524d\u65f6\u95f4\u6876\u6ca1\u6709\u8bc1\u636e\uff0c\u5df2\u56de\u9000\u5230\u6700\u8fd1\u6709\u8bc1\u636e\u7684\u65f6\u95f4\u6876 ${nearestStorylineBucket}`
+          : null;
       }
     }
   }
@@ -686,13 +673,14 @@ export function getScopedEvidenceState(bundle: PublishedBundle, focus: Workspace
     resolvedBucketStart,
     resolvedViewpointId:
       resolvedViewpointId ??
-      sortViewpointIdsByStrength(
+      rankViewpointIds(
         bundle,
         [
           ...scopedEvidence.evidenceClusters.map((cluster) => cluster.viewpoint_id),
           ...scopedEvidence.particles.map((particle) => particle.viewpoint_id)
         ],
-        resolvedBucketIndex
+        resolvedBucketIndex,
+        focus.activeViewpointId
       )[0] ??
       null,
     particles: scopedEvidence.particles,
