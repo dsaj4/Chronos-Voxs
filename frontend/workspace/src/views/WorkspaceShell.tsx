@@ -1,12 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { StorylineSwitchHeader } from "../components/StorylineSwitchHeader";
+import { StatusThumbnails } from "../components/StatusThumbnails";
 import type { PublishedBundle } from "../loader/publishedTypes";
-import {
-  getEvidencePostureTone,
-  getLogicStatusTone,
-  getModelCategoryLabel,
-  getPrimaryViewLabel
-} from "../presentation/workspaceChrome";
+import { getPrimaryViewLabel } from "../presentation/workspaceChrome";
 import {
   getPrimaryActiveStorylineId,
   getScopedEvidenceState,
@@ -104,8 +99,6 @@ export function WorkspaceShell({
     null;
   const relationshipScope = getScopedRelationshipState(bundle, effectiveFocus);
   const evidenceScope = getScopedEvidenceState(bundle, effectiveFocus);
-  const activeModel =
-    bundle.meta.available_models.find((model) => model.id === effectiveFocus.selectedModelId) ?? null;
   const relationshipViewpointTitle =
     relationshipScope.displayViewpointId === null
       ? `\u65e0\u7126\u70b9`
@@ -121,40 +114,23 @@ export function WorkspaceShell({
           relationshipScope,
           evidenceScope
         );
-  const storylineLogicTone = selectedStoryline ? getLogicStatusTone(selectedStoryline.logic_status) : null;
-  const storylineEvidenceTone = selectedStoryline
-    ? getEvidencePostureTone(selectedStoryline.evidence_posture)
-    : null;
 
   return (
     <div className="workspace-shell">
-      <header className="topbar workspace-header">
-        <div className="workspace-header__identity">
-          <div className="workspace-brand">
+      <header className="workspace-topnav">
+        <div className="workspace-topnav__identity">
+          <div className="workspace-topnav__brand">
             <span className="workspace-brand__mark" aria-hidden="true" />
-            <div className="workspace-brand__copy">
-              <p className="eyebrow">{`Chronos-Vox \u5206\u6790\u5de5\u4f5c\u53f0`}</p>
-              <h1>{bundle.meta.case_title}</h1>
-              <p className="muted">
-                {`${bundle.meta.topic_tag} / ${`\u53d1\u5e03`} bundle ${bundle.meta.fixture_id} / ${`\u5408\u7ea6`} ${bundle.meta.contract_version}`}
-              </p>
-            </div>
+            <span className="workspace-topnav__brand-label">{`CHRONOS-VOX`}</span>
           </div>
-          {selectedStoryline ? (
-            <div className="workspace-headline">
-              {storylineLogicTone ? (
-                <span className={`tone-pill tone-pill--${storylineLogicTone.tone}`}>{storylineLogicTone.label}</span>
-              ) : null}
-              {storylineEvidenceTone ? (
-                <span className={`tone-pill tone-pill--${storylineEvidenceTone.tone}`}>
-                  {storylineEvidenceTone.label}
-                </span>
-              ) : null}
-              <span className="workspace-headline__title">{selectedStoryline.title}</span>
-            </div>
-          ) : null}
+          <span className="workspace-topnav__divider" aria-hidden="true" />
+          <div className="workspace-topnav__meta">
+            <span className="workspace-topnav__tag">{bundle.meta.topic_tag}</span>
+            <span className="workspace-topnav__case">{bundle.meta.case_title}</span>
+          </div>
         </div>
-        <nav className="view-tabs workspace-tabs" aria-label="Primary views">
+
+        <nav className="workspace-tabs" aria-label="Primary views">
           {[
             { id: "storylines", label: `\u4e3b\u7ebf` },
             { id: "relationships", label: `\u5173\u7cfb` },
@@ -163,95 +139,91 @@ export function WorkspaceShell({
             <button
               key={item.id}
               type="button"
-              className={`tab ${effectiveFocus.activePrimaryView === item.id ? "tab--active" : ""}`}
+              className={`cv-view-tab ${effectiveFocus.activePrimaryView === item.id ? "cv-view-tab--active" : ""}`}
               onClick={() => onPrimaryViewChange(item.id as PrimaryViewKey)}
             >
               {item.label}
             </button>
           ))}
         </nav>
-        <div className="topbar__meta workspace-header__meta">
-          {activeModel ? (
-            <span className="workspace-model">
-              {`${activeModel.label} / ${getModelCategoryLabel(activeModel.category)}`}
-            </span>
-          ) : null}
-          <p className="workspace-impact">
-            {`${getPrimaryViewLabel(effectiveFocus.activePrimaryView)}${`\u89c6\u56fe`} · ${impactSummary}`}
-          </p>
+
+        <div className="workspace-topnav__impact">
+          <span>{`${getPrimaryViewLabel(effectiveFocus.activePrimaryView)}${`\u89c6\u56fe`} 路 ${impactSummary}`}</span>
         </div>
       </header>
 
       <main className="workspace-grid">
-        <section className="left-column">
-          {effectiveFocus.activePrimaryView === "storylines" ? (
-            <Suspense fallback={<div className="panel loading-state">{`\u4e3b\u7ebf\u821e\u53f0\u6b63\u5728\u52a0\u8f7d\u2026`}</div>}>
-              <StorylinePanel
+        <section className="left-column workspace-stage-shell">
+          <div className="workspace-stage-shell__overlay" aria-hidden="true" />
+          <div className="workspace-stage-shell__content">
+            {effectiveFocus.activePrimaryView === "storylines" ? (
+              <Suspense fallback={<div className="loading-state">{`\u4e3b\u7ebf\u821e\u53f0\u6b63\u5728\u52a0\u8f7d\u2026`}</div>}>
+                <StorylinePanel
+                  bundle={bundle}
+                  activeStorylineId={activeStorylineId}
+                  onStorylineSelect={(storylineId) => {
+                    setLocalOverride(null);
+                    onStorylineSelect(storylineId);
+                  }}
+                />
+              </Suspense>
+            ) : effectiveFocus.activePrimaryView === "relationships" ? (
+              <RelationshipPanel
                 bundle={bundle}
-                activeStorylineId={activeStorylineId}
-                onStorylineSelect={(storylineId) => {
-                  setLocalOverride(null);
-                  onStorylineSelect(storylineId);
-                }}
-              />
-            </Suspense>
-          ) : (
-            <>
-              <StorylineSwitchHeader
+                scope={relationshipScope}
                 storylines={bundle.stream.storylines}
                 activeStorylineId={activeStorylineId}
                 onStorylineSelect={(storylineId) => {
                   setLocalOverride(null);
                   onStorylineSelect(storylineId);
                 }}
+                onNodeSelect={({ viewpointId, bucketIndex }) => {
+                  const viewpointTitle =
+                    bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === viewpointId)?.title ??
+                    viewpointId;
+                  setLocalOverride({
+                    storylineId: relationshipScope.storylineId,
+                    viewpointId,
+                    bucketIndex,
+                    impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`,
+                    sourceView: "relationships"
+                  });
+                }}
               />
-
-              {effectiveFocus.activePrimaryView === "relationships" ? (
-                <RelationshipPanel
-                  bundle={bundle}
-                  scope={relationshipScope}
-                  onNodeSelect={({ viewpointId, bucketIndex }) => {
-                    const viewpointTitle =
-                      bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === viewpointId)?.title ??
-                      viewpointId;
-                    setLocalOverride({
-                      storylineId: relationshipScope.storylineId,
-                      viewpointId,
-                      bucketIndex,
-                      impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`,
-                      sourceView: "relationships"
-                    });
-                  }}
-                />
-              ) : (
-                <EvidencePanel
-                  bundle={bundle}
-                  scope={evidenceScope}
-                  onBucketSelect={(bucketIndex) => {
-                    setLocalOverride({
-                      storylineId: evidenceScope.storylineId,
-                      viewpointId: effectiveFocus.activeViewpointId,
-                      bucketIndex,
-                      impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`,
-                      sourceView: "evidence"
-                    });
-                  }}
-                  onEvidenceFocus={({ viewpointId, bucketIndex, impact }) => {
-                    setLocalOverride({
-                      storylineId: evidenceScope.storylineId,
-                      viewpointId,
-                      bucketIndex,
-                      impact,
-                      sourceView: "evidence"
-                    });
-                  }}
-                />
-              )}
-            </>
-          )}
+            ) : (
+              <EvidencePanel
+                bundle={bundle}
+                scope={evidenceScope}
+                storylines={bundle.stream.storylines}
+                activeStorylineId={activeStorylineId}
+                onStorylineSelect={(storylineId) => {
+                  setLocalOverride(null);
+                  onStorylineSelect(storylineId);
+                }}
+                onBucketSelect={(bucketIndex) => {
+                  setLocalOverride({
+                    storylineId: evidenceScope.storylineId,
+                    viewpointId: effectiveFocus.activeViewpointId,
+                    bucketIndex,
+                    impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`,
+                    sourceView: "evidence"
+                  });
+                }}
+                onEvidenceFocus={({ viewpointId, bucketIndex, impact }) => {
+                  setLocalOverride({
+                    storylineId: evidenceScope.storylineId,
+                    viewpointId,
+                    bucketIndex,
+                    impact,
+                    sourceView: "evidence"
+                  });
+                }}
+              />
+            )}
+          </div>
         </section>
 
-        <aside className="right-column">
+        <aside className="right-column workspace-detail-column">
           <DetailPanel
             bundle={bundle}
             focus={effectiveFocus}
@@ -262,6 +234,14 @@ export function WorkspaceShell({
           />
         </aside>
       </main>
+
+      <StatusThumbnails
+        bundle={bundle}
+        focus={effectiveFocus}
+        relationshipScope={relationshipScope}
+        evidenceScope={evidenceScope}
+        onPrimaryViewChange={onPrimaryViewChange}
+      />
     </div>
   );
 }

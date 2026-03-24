@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { StorylineSwitchHeader } from "../components/StorylineSwitchHeader";
 import { formatBucketStart } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
 import type { ScopedEvidenceState } from "../state/focusSelectors";
@@ -8,6 +9,9 @@ interface EvidencePanelProps {
   scope: ScopedEvidenceState;
   onBucketSelect: (bucketIndex: number) => void;
   onEvidenceFocus: (input: { viewpointId: string | null; bucketIndex: number; impact: string }) => void;
+  storylines?: PublishedBundle["stream"]["storylines"];
+  activeStorylineId?: string | null;
+  onStorylineSelect?: (storylineId: string) => void;
 }
 
 interface EvidenceBucketSummary {
@@ -521,7 +525,15 @@ function ParticleFieldCanvas({
   );
 }
 
-export function EvidencePanel({ bundle, scope, onBucketSelect, onEvidenceFocus }: EvidencePanelProps) {
+export function EvidencePanel({
+  bundle,
+  scope,
+  onBucketSelect,
+  onEvidenceFocus,
+  storylines,
+  activeStorylineId,
+  onStorylineSelect
+}: EvidencePanelProps) {
   const storyline =
     scope.storylineId === null
       ? null
@@ -555,22 +567,33 @@ export function EvidencePanel({ bundle, scope, onBucketSelect, onEvidenceFocus }
   }
 
   return (
-    <section className="panel evidence-panel evidence-panel--signal">
-      <div className="evidence-stage__header">
-        <div>
-          <p className="eyebrow">{`\u8bc1\u636e\u89c6\u56fe`}</p>
+    <section className="workspace-view evidence-panel evidence-panel--signal">
+      <div className="workspace-view__header evidence-stage__header">
+        <div className="workspace-view__intro">
+          <p className="workspace-view__kicker">{`EVIDENCE FIELD`}</p>
           <h2>{`\u65f6\u95f4-\u8bc1\u636e\u7c92\u5b50\u573a`}</h2>
-          <p className="muted">
+          <p className="workspace-view__description">
             {resolvedViewpoint
               ? `${resolvedViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u89c6\u89d2\u951a\u70b9\u3002`}`
               : `\u5f53\u524d\u5207\u7247\u6309\u4e3b\u7ebf\u8bc1\u636e\u805a\u5408\u663e\u793a\u3002`}
           </p>
         </div>
-        <div className="evidence-stage__summary">
-          {scope.resolvedBucketIndex !== null ? (
-            <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
+        <div className="workspace-view__controls">
+          {storylines && onStorylineSelect ? (
+            <StorylineSwitchHeader
+              storylines={storylines}
+              activeStorylineId={activeStorylineId ?? null}
+              onStorylineSelect={onStorylineSelect}
+              eyebrow={null}
+              className="storyline-switcher--inline"
+            />
           ) : null}
-          <span className="tone-pill tone-pill--focus">{`${clusters.length} ${`\u7c07`} / ${particles.length} ${`\u7c92\u5b50`}`}</span>
+          <div className="evidence-stage__summary">
+            {scope.resolvedBucketIndex !== null ? (
+              <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
+            ) : null}
+            <span className="tone-pill tone-pill--focus">{`${clusters.length} ${`\u7c07`} / ${particles.length} ${`\u7c92\u5b50`}`}</span>
+          </div>
         </div>
       </div>
 

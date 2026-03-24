@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { StorylineSwitchHeader } from "../components/StorylineSwitchHeader";
 import { formatBucketStart } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
 import type { ScopedRelationshipState } from "../state/focusSelectors";
@@ -10,6 +11,9 @@ interface RelationshipPanelProps {
   bundle: PublishedBundle;
   scope: ScopedRelationshipState;
   onNodeSelect: (input: { viewpointId: string; bucketIndex: number }) => void;
+  storylines?: PublishedBundle["stream"]["storylines"];
+  activeStorylineId?: string | null;
+  onStorylineSelect?: (storylineId: string) => void;
 }
 
 interface RelationStyle {
@@ -72,7 +76,14 @@ function resolveRelationBucketIndex(
   return sharedBucketIndexes.at(-1) ?? null;
 }
 
-export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipPanelProps) {
+export function RelationshipPanel({
+  bundle,
+  scope,
+  onNodeSelect,
+  storylines,
+  activeStorylineId,
+  onStorylineSelect
+}: RelationshipPanelProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const storyline =
@@ -120,22 +131,33 @@ export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipP
   }
 
   return (
-    <section className="panel relationship-panel relationship-panel--signal">
-      <div className="relationship-panel__header">
-        <div>
-          <p className="eyebrow">{`\u5173\u7cfb\u89c6\u56fe`}</p>
+    <section className="workspace-view relationship-panel relationship-panel--signal">
+      <div className="workspace-view__header relationship-panel__header">
+        <div className="workspace-view__intro">
+          <p className="workspace-view__kicker">{`NEURAL MAP / SIGNAL`}</p>
           <h2>{`\u65f6\u95f4-\u89c2\u70b9\u6f14\u5316\u56fe`}</h2>
-          <p className="muted">
+          <p className="workspace-view__description">
             {displayViewpoint
               ? `${displayViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u4e3b\u89c2\u70b9\u3002`}`
               : `\u5f53\u524d\u89c2\u70b9\u4e0d\u53ef\u7528\u3002`}
           </p>
         </div>
-        <div className="relationship-panel__summary">
-          {scope.resolvedBucketIndex !== null ? (
-            <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
+        <div className="workspace-view__controls">
+          {storylines && onStorylineSelect ? (
+            <StorylineSwitchHeader
+              storylines={storylines}
+              activeStorylineId={activeStorylineId ?? null}
+              onStorylineSelect={onStorylineSelect}
+              eyebrow={null}
+              className="storyline-switcher--inline"
+            />
           ) : null}
-          <span className="tone-pill tone-pill--focus">{`${scope.lanes.length} ${`\u6761\u6cf3\u9053`}`}</span>
+          <div className="relationship-panel__summary">
+            {scope.resolvedBucketIndex !== null ? (
+              <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
+            ) : null}
+            <span className="tone-pill tone-pill--focus">{`${scope.lanes.length} ${`\u6761\u6cf3\u9053`}`}</span>
+          </div>
         </div>
       </div>
 

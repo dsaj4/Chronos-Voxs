@@ -6,14 +6,16 @@ interface StorylineSwitchHeaderProps {
   storylines: PublishedBundle["stream"]["storylines"];
   activeStorylineId: string | null;
   onStorylineSelect: (storylineId: string) => void;
-  eyebrow?: string;
+  eyebrow?: string | null;
+  className?: string;
 }
 
 export function StorylineSwitchHeader({
   storylines,
   activeStorylineId,
   onStorylineSelect,
-  eyebrow = "\u4e3b\u7ebf\u5207\u6362"
+  eyebrow = "\u4e3b\u7ebf\u5207\u6362",
+  className = ""
 }: StorylineSwitchHeaderProps) {
   const sortedStorylines = useMemo(
     () => [...storylines].sort((left, right) => left.display_rank - right.display_rank),
@@ -21,8 +23,8 @@ export function StorylineSwitchHeader({
   );
 
   return (
-    <div className="storyline-stream__header storyline-switcher">
-      <p className="eyebrow storyline-switcher__eyebrow">{eyebrow}</p>
+    <div className={`storyline-stream__header storyline-switcher ${className}`.trim()}>
+      {eyebrow ? <p className="eyebrow storyline-switcher__eyebrow">{eyebrow}</p> : null}
 
       <div className="storyline-stream__legend">
         {sortedStorylines.map((storyline, index) => {

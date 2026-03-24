@@ -172,12 +172,21 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
   }
 
   return (
-    <section className="panel storyline-stream">
-      <StorylineSwitchHeader
-        storylines={storylines}
-        activeStorylineId={selectedStorylineId}
-        onStorylineSelect={onStorylineSelect}
-      />
+    <section className="workspace-view storyline-stream">
+      <div className="workspace-view__header">
+        <div className="workspace-view__intro">
+          <p className="workspace-view__kicker">{`TEMPORAL ANALYSIS`}</p>
+          <h2>{`The Stream`}</h2>
+          <p className="workspace-view__description">{`\u8206\u8bba\u6d41\u5149\u6c60 / \u5b8f\u89c2\u6f14\u5316\u89c6\u56fe`}</p>
+        </div>
+        <StorylineSwitchHeader
+          storylines={storylines}
+          activeStorylineId={selectedStorylineId}
+          onStorylineSelect={onStorylineSelect}
+          eyebrow={null}
+          className="storyline-switcher--inline"
+        />
+      </div>
 
       <div className="storyline-stream__stage">
         <div className="storyline-stream__chart storyline-stream__chart--primary">
