@@ -39,6 +39,7 @@ interface LocalFocusOverride {
   viewpointId: string | null;
   bucketIndex: number | null;
   impact: string;
+  sourceView: PrimaryViewKey;
 }
 
 function WorkspaceStageRail({
@@ -176,14 +177,15 @@ export function WorkspaceShell({
       : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === relationshipScope.displayViewpointId)?.title ??
         relationshipScope.displayViewpointId;
   const impactSummary =
-    localOverride?.impact ??
-    getWorkspaceImpactSummary(
-      effectiveFocus.activePrimaryView,
-      selectedStoryline?.title ?? null,
-      relationshipViewpointTitle,
-      relationshipScope,
-      evidenceScope
-    );
+    localOverride && localOverride.sourceView === effectiveFocus.activePrimaryView
+      ? localOverride.impact
+      : getWorkspaceImpactSummary(
+          effectiveFocus.activePrimaryView,
+          selectedStoryline?.title ?? null,
+          relationshipViewpointTitle,
+          relationshipScope,
+          evidenceScope
+        );
   const storylineLogicTone = selectedStoryline ? getLogicStatusTone(selectedStoryline.logic_status) : null;
   const storylineEvidenceTone = selectedStoryline
     ? getEvidencePostureTone(selectedStoryline.evidence_posture)
@@ -281,7 +283,8 @@ export function WorkspaceShell({
                       storylineId: relationshipScope.storylineId,
                       viewpointId,
                       bucketIndex,
-                      impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`
+                      impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`,
+                      sourceView: "relationships"
                     });
                   }}
                 />
@@ -294,7 +297,8 @@ export function WorkspaceShell({
                       storylineId: evidenceScope.storylineId,
                       viewpointId: effectiveFocus.activeViewpointId,
                       bucketIndex,
-                      impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`
+                      impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`,
+                      sourceView: "evidence"
                     });
                   }}
                   onEvidenceFocus={({ viewpointId, bucketIndex, impact }) => {
@@ -302,7 +306,8 @@ export function WorkspaceShell({
                       storylineId: evidenceScope.storylineId,
                       viewpointId,
                       bucketIndex,
-                      impact
+                      impact,
+                      sourceView: "evidence"
                     });
                   }}
                 />

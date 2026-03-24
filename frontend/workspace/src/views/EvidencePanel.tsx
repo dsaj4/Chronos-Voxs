@@ -194,7 +194,7 @@ export function EvidencePanel({ bundle, scope, onBucketSelect, onEvidenceFocus }
           <h2>{`\u65f6\u95f4-\u8bc1\u636e\u661f\u56fe`}</h2>
           <p className="muted">
             {resolvedViewpoint
-              ? `${resolvedViewpoint.title} ${`\u4f5c\u4e3a\u5f53\u524d\u89c6\u89d2\u9508\u70b9\u3002\u53ef\u4ee5\u5728\u821e\u53f0\u5185\u5c40\u90e8\u5207\u6876\u3001\u5207\u70b9\u6216\u8ddf\u8fdb\u5230\u5177\u4f53\u8bc1\u636e\u3002`}`
+              ? `${resolvedViewpoint.title} ${`\u4f5c\u4e3a\u5f53\u524d\u89c6\u89d2\u951a\u70b9\u3002\u53ef\u4ee5\u5728\u821e\u53f0\u5185\u5c40\u90e8\u5207\u6876\u3001\u5207\u70b9\u6216\u8ddf\u8fdb\u5230\u5177\u4f53\u8bc1\u636e\u3002`}`
               : `\u5f53\u524d\u5207\u7247\u6309\u4e3b\u7ebf\u8bc1\u636e\u805a\u5408\u663e\u793a\u3002`}
           </p>
         </div>

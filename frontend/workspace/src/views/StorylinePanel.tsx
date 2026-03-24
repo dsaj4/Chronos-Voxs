@@ -355,7 +355,7 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
           ) : null}
 
           <div className="storyline-stream__chart">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={420} minWidth={320}>
               <AreaChart
                 data={chartData}
                 stackOffset="expand"
