@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { StorylineList } from "../components/StorylineList";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { ViewStatusCard } from "../components/ViewStatusCard";
 import { formatBucketStart, getPublishedForecastSummary } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
 import {
+  STREAM_COLORS,
   getEvidencePostureTone,
   getLogicStatusTone,
   getModelCategoryLabel,
@@ -20,7 +20,11 @@ import type { PrimaryViewKey, WorkspaceFocusState } from "../state/focusState";
 import { DetailPanel } from "./DetailPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { RelationshipPanel } from "./RelationshipPanel";
-import { StorylinePanel } from "./StorylinePanel";
+
+const StorylinePanel = lazy(async () => {
+  const module = await import("./StorylinePanel");
+  return { default: module.StorylinePanel };
+});
 
 interface WorkspaceShellProps {
   bundle: PublishedBundle;
@@ -35,6 +39,71 @@ interface LocalFocusOverride {
   viewpointId: string | null;
   bucketIndex: number | null;
   impact: string;
+}
+
+function WorkspaceStageRail({
+  storylines,
+  activeStorylineId,
+  onStorylineSelect
+}: {
+  storylines: PublishedBundle["stream"]["storylines"];
+  activeStorylineId: string | null;
+  onStorylineSelect: (storylineId: string) => void;
+}) {
+  const sortedStorylines = [...storylines].sort((left, right) => left.display_rank - right.display_rank);
+
+  return (
+    <section className="panel workspace-stage-rail">
+      <div className="workspace-stage-rail__header">
+        <div>
+          <p className="eyebrow">{`\u5171\u4eab\u7126\u70b9`}</p>
+          <h3>{`\u4e3b\u7ebf\u5bfc\u822a rail`}</h3>
+        </div>
+        <p className="workspace-stage-rail__summary">
+          {`\u5207\u6362\u4e3b\u7ebf\u4f1a\u540c\u6b65\u5237\u65b0\u5173\u7cfb\u4e0e\u8bc1\u636e\u821e\u53f0\u7684\u5c40\u90e8\u89c6\u89d2\u3002`}
+        </p>
+      </div>
+
+      <div className="storyline-stream__rail-list">
+        {sortedStorylines.map((storyline, index) => {
+          const isActive = storyline.storyline_id === activeStorylineId;
+          const logicTone = getLogicStatusTone(storyline.logic_status);
+          const evidenceTone = getEvidencePostureTone(storyline.evidence_posture);
+          const color = STREAM_COLORS[index % STREAM_COLORS.length];
+
+          return (
+            <button
+              key={storyline.storyline_id}
+              type="button"
+              className={`storyline-stream__rail-item workspace-stage-rail__item ${
+                isActive ? "storyline-stream__rail-item--active" : ""
+              }`}
+              onClick={() => onStorylineSelect(storyline.storyline_id)}
+            >
+              <div className="storyline-stream__rail-item-head">
+                <span
+                  className="storyline-stream__rail-swatch"
+                  style={{ background: color.fill, borderColor: color.stroke }}
+                  aria-hidden="true"
+                />
+                <span className="storyline-stream__rail-name">{storyline.title}</span>
+                <span className="storyline-stream__rail-value">{`#${storyline.display_rank}`}</span>
+              </div>
+              <div className="storyline-stream__rail-meta">
+                <span className={`tone-pill tone-pill--${logicTone.tone}`}>{logicTone.label}</span>
+                <span className={`tone-pill tone-pill--${evidenceTone.tone}`}>{evidenceTone.label}</span>
+              </div>
+              <div className="workspace-stage-rail__meta">
+                <span>{`${storyline.support_count} ${`\u652f\u6301`}`}</span>
+                <span>{`${storyline.viewpoint_count} ${`\u89c2\u70b9`}`}</span>
+                <span>{`${storyline.comment_count} ${`\u8bc4\u8bba`}`}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function getWorkspaceImpactSummary(
@@ -179,35 +248,26 @@ export function WorkspaceShell({
       <main className="workspace-grid">
         <section className="left-column">
           {effectiveFocus.activePrimaryView === "storylines" ? (
-            <StorylinePanel
-              bundle={bundle}
-              activeStorylineId={activeStorylineId}
-              onStorylineSelect={(storylineId) => {
-                setLocalOverride(null);
-                onStorylineSelect(storylineId);
-              }}
-            />
+            <Suspense fallback={<div className="panel loading-state">{`\u4e3b\u7ebf\u821e\u53f0\u6b63\u5728\u52a0\u8f7d\u2026`}</div>}>
+              <StorylinePanel
+                bundle={bundle}
+                activeStorylineId={activeStorylineId}
+                onStorylineSelect={(storylineId) => {
+                  setLocalOverride(null);
+                  onStorylineSelect(storylineId);
+                }}
+              />
+            </Suspense>
           ) : (
             <>
-              <div className="panel">
-                <div className="panel__heading">
-                  <div>
-                    <p className="eyebrow">{`\u4e3b\u7ebf\u5217\u8868`}</p>
-                    <h3>{`\u5df2\u53d1\u5e03\u4e3b\u7ebf`}</h3>
-                  </div>
-                  <span className="muted">
-                    {`\u5207\u6362\u4e3b\u7ebf\u4f1a\u66f4\u65b0\u5171\u4eab\u7126\u70b9\uff0c\u5173\u7cfb\u4e0e\u8bc1\u636e\u89c6\u56fe\u8ddf\u968f\u540c\u6b65\u3002`}
-                  </span>
-                </div>
-                <StorylineList
-                  storylines={bundle.stream.storylines}
-                  activeStorylineId={activeStorylineId}
-                  onSelect={(storylineId) => {
-                    setLocalOverride(null);
-                    onStorylineSelect(storylineId);
-                  }}
-                />
-              </div>
+              <WorkspaceStageRail
+                storylines={bundle.stream.storylines}
+                activeStorylineId={activeStorylineId}
+                onStorylineSelect={(storylineId) => {
+                  setLocalOverride(null);
+                  onStorylineSelect(storylineId);
+                }}
+              />
 
               {effectiveFocus.activePrimaryView === "relationships" ? (
                 <RelationshipPanel
