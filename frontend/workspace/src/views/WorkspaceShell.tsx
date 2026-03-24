@@ -226,7 +226,26 @@ export function WorkspaceShell({
                   }}
                 />
               ) : (
-                <EvidencePanel bundle={bundle} scope={evidenceScope} />
+                <EvidencePanel
+                  bundle={bundle}
+                  scope={evidenceScope}
+                  onBucketSelect={(bucketIndex) => {
+                    setLocalOverride({
+                      storylineId: evidenceScope.storylineId,
+                      viewpointId: effectiveFocus.activeViewpointId,
+                      bucketIndex,
+                      impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`
+                    });
+                  }}
+                  onEvidenceFocus={({ viewpointId, bucketIndex, impact }) => {
+                    setLocalOverride({
+                      storylineId: evidenceScope.storylineId,
+                      viewpointId,
+                      bucketIndex,
+                      impact
+                    });
+                  }}
+                />
               )}
             </>
           )}
