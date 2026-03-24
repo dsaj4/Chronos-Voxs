@@ -60,7 +60,7 @@ export function getEvidencePostureTone(
   }
 }
 
-export function getRelationTypeTone(relationType: string): ToneLabel {
+export function getRelationTypeTone(relationType: string | null): ToneLabel {
   switch (relationType) {
     case "reinforces":
       return { label: "增强", tone: "reinforce" };
@@ -73,7 +73,7 @@ export function getRelationTypeTone(relationType: string): ToneLabel {
     case "qualifies":
       return { label: "限定", tone: "muted" };
     default:
-      return { label: relationType, tone: "muted" };
+      return { label: relationType ?? "主线", tone: "muted" };
   }
 }
 
