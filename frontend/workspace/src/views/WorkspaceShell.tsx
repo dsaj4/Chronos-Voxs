@@ -4,6 +4,12 @@ import { ViewStatusCard } from "../components/ViewStatusCard";
 import { formatBucketStart, getPublishedForecastSummary } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
 import {
+  getEvidencePostureTone,
+  getLogicStatusTone,
+  getModelCategoryLabel,
+  getPrimaryViewLabel
+} from "../presentation/workspaceChrome";
+import {
   getPrimaryActiveStorylineId,
   getScopedEvidenceState,
   getScopedRelationshipState,
@@ -92,9 +98,9 @@ export function WorkspaceShell({
   const evidenceScope = getScopedEvidenceState(bundle, effectiveFocus);
   const activeForecastSummary =
     selectedStoryline ? getPublishedForecastSummary(bundle, selectedStoryline.storyline_id) : null;
-  const activeModelLabel =
-    bundle.meta.available_models.find((model) => model.id === effectiveFocus.selectedModelId)?.label ??
-    effectiveFocus.selectedModelId;
+  const activeModel =
+    bundle.meta.available_models.find((model) => model.id === effectiveFocus.selectedModelId) ?? null;
+  const activeModelLabel = activeModel?.label ?? effectiveFocus.selectedModelId;
   const relationshipViewpointTitle =
     relationshipScope.displayViewpointId === null
       ? `\u65e0\u7126\u70b9`
@@ -109,50 +115,66 @@ export function WorkspaceShell({
       relationshipScope,
       evidenceScope
     );
+  const storylineLogicTone = selectedStoryline ? getLogicStatusTone(selectedStoryline.logic_status) : null;
+  const storylineEvidenceTone = selectedStoryline
+    ? getEvidencePostureTone(selectedStoryline.evidence_posture)
+    : null;
 
   return (
     <div className="workspace-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">{`Chronos-Vox \u5206\u6790\u5de5\u4f5c\u53f0`}</p>
-          <h1>{bundle.meta.case_title}</h1>
-          <p className="muted">
-            {`${`\u53d1\u5e03`} bundle ${bundle.meta.fixture_id} / ${`\u5408\u7ea6`} ${bundle.meta.contract_version}`}
+      <header className="topbar workspace-header">
+        <div className="workspace-header__identity">
+          <div className="workspace-brand">
+            <span className="workspace-brand__mark" aria-hidden="true" />
+            <div className="workspace-brand__copy">
+              <p className="eyebrow">{`Chronos-Vox \u5206\u6790\u5de5\u4f5c\u53f0`}</p>
+              <h1>{bundle.meta.case_title}</h1>
+              <p className="muted">
+                {`${bundle.meta.topic_tag} / ${`\u53d1\u5e03`} bundle ${bundle.meta.fixture_id} / ${`\u5408\u7ea6`} ${bundle.meta.contract_version}`}
+              </p>
+            </div>
+          </div>
+          {selectedStoryline ? (
+            <div className="workspace-headline">
+              {storylineLogicTone ? (
+                <span className={`tone-pill tone-pill--${storylineLogicTone.tone}`}>{storylineLogicTone.label}</span>
+              ) : null}
+              {storylineEvidenceTone ? (
+                <span className={`tone-pill tone-pill--${storylineEvidenceTone.tone}`}>
+                  {storylineEvidenceTone.label}
+                </span>
+              ) : null}
+              <span className="workspace-headline__title">{selectedStoryline.title}</span>
+            </div>
+          ) : null}
+        </div>
+        <nav className="view-tabs workspace-tabs" aria-label="Primary views">
+          {[
+            { id: "storylines", label: `\u4e3b\u7ebf` },
+            { id: "relationships", label: `\u5173\u7cfb` },
+            { id: "evidence", label: `\u8bc1\u636e` }
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`tab ${effectiveFocus.activePrimaryView === item.id ? "tab--active" : ""}`}
+              onClick={() => onPrimaryViewChange(item.id as PrimaryViewKey)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="topbar__meta workspace-header__meta">
+          {activeModel ? (
+            <span className="workspace-model">
+              {`${activeModel.label} / ${getModelCategoryLabel(activeModel.category)}`}
+            </span>
+          ) : null}
+          <p className="workspace-impact">
+            {`${getPrimaryViewLabel(effectiveFocus.activePrimaryView)}${`\u89c6\u56fe`} · ${impactSummary}`}
           </p>
         </div>
-        <div className="topbar__meta">
-          <div className="pill-row">
-            {bundle.meta.available_models.map((model) => (
-              <button
-                key={model.id}
-                type="button"
-                className={`pill ${model.id === effectiveFocus.selectedModelId ? "pill--active" : ""}`}
-                onClick={() => onModelChange(model.id)}
-              >
-                {model.label}
-              </button>
-            ))}
-          </div>
-          <p className="muted">{impactSummary}</p>
-        </div>
       </header>
-
-      <nav className="view-tabs" aria-label="Primary views">
-        {[
-          { id: "storylines", label: `\u4e3b\u7ebf` },
-          { id: "relationships", label: `\u5173\u7cfb` },
-          { id: "evidence", label: `\u8bc1\u636e` }
-        ].map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`tab ${effectiveFocus.activePrimaryView === item.id ? "tab--active" : ""}`}
-            onClick={() => onPrimaryViewChange(item.id as PrimaryViewKey)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
 
       <main className="workspace-grid">
         <section className="left-column">
@@ -210,6 +232,7 @@ export function WorkspaceShell({
             relationshipScope={relationshipScope}
             evidenceScope={evidenceScope}
             impactSummary={impactSummary}
+            onModelChange={onModelChange}
           />
           <div className="preview-rail">
             <ViewStatusCard

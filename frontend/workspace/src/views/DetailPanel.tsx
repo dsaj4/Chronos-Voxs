@@ -1,5 +1,12 @@
+import type { ReactNode } from "react";
 import { formatBucketStart, getPublishedReasoningForSeries, getPublishedTraceability } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
+import {
+  getEvidencePostureTone,
+  getLogicStatusTone,
+  getModelCategoryLabel,
+  getRelationTypeTone
+} from "../presentation/workspaceChrome";
 import type { ScopedEvidenceState, ScopedRelationshipState } from "../state/focusSelectors";
 import type { WorkspaceFocusState } from "../state/focusState";
 
@@ -9,23 +16,39 @@ interface DetailPanelProps {
   relationshipScope: ScopedRelationshipState;
   evidenceScope: ScopedEvidenceState;
   impactSummary: string;
+  onModelChange: (modelId: WorkspaceFocusState["selectedModelId"]) => void;
 }
 
-function formatRelationLabel(relationType: string): string {
-  switch (relationType) {
-    case "reinforces":
-      return "\u589e\u5f3a";
-    case "constrains":
-      return "\u538b\u5236";
-    case "depends_on":
-      return "\u4f9d\u8d56";
-    case "competes_with":
-      return "\u7ade\u4e89";
-    case "qualifies":
-      return "\u9650\u5b9a";
-    default:
-      return relationType;
-  }
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <div className="detail-panel__section-title">
+      <span className="detail-panel__section-line" aria-hidden="true" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  accent = false
+}: {
+  label: string;
+  value: React.ReactNode;
+  accent?: boolean;
+}) {
+  return (
+    <div className="detail-panel__info-row">
+      <span className="detail-panel__info-label">{label}</span>
+      <span className={`detail-panel__info-value ${accent ? "detail-panel__info-value--accent" : ""}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <p className="detail-panel__empty">{message}</p>;
 }
 
 export function DetailPanel({
@@ -33,7 +56,8 @@ export function DetailPanel({
   focus,
   relationshipScope,
   evidenceScope,
-  impactSummary
+  impactSummary,
+  onModelChange
 }: DetailPanelProps) {
   const activeStorylineId = focus.activeStorylineIds[0] ?? null;
   const effectiveBucketIndex =
@@ -74,102 +98,184 @@ export function DetailPanel({
       : focus.activePrimaryView === "evidence"
         ? evidenceScope.fallbackMessage
         : null;
+  const storylineLogicTone = storyline ? getLogicStatusTone(storyline.logic_status) : null;
+  const storylineEvidenceTone = storyline ? getEvidencePostureTone(storyline.evidence_posture) : null;
+  const relationshipAnchors =
+    focus.activePrimaryView === "relationships" ? relationshipScope.externalAnchors.slice(0, 4) : [];
+  const heatWeights = Object.entries(bundle.reasoning.heat_index_formula.weights);
 
   return (
-    <section className="panel detail-panel">
-      <div className="panel__heading">
+    <section className="panel detail-panel detail-panel--signal">
+      <div className="detail-panel__header">
         <div>
-          <p className="eyebrow">{`\u7edf\u4e00\u8be6\u60c5`}</p>
-          <h3>{`\u5f53\u524d\u7126\u70b9`}</h3>
+          <p className="eyebrow">统一详情</p>
+          <h3>当前焦点</h3>
         </div>
-        {model ? <span className="pill">{model.label}</span> : null}
+        {model ? (
+          <span className="workspace-model">
+            {`${model.label} / ${getModelCategoryLabel(model.category)}`}
+          </span>
+        ) : null}
       </div>
-      <p className="muted">{impactSummary}</p>
+
+      <p className="detail-panel__impact">{impactSummary}</p>
       {fallbackNote ? <p className="detail-panel__note">{fallbackNote}</p> : null}
 
-      <div className="detail-panel__grid">
-        {viewpoint ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u5f53\u524d\u89c2\u70b9`}</p>
-            <strong>{viewpoint.title}</strong>
-            <p>{viewpoint.summary}</p>
-            <p className="muted">{viewpoint.claim_statement}</p>
-          </div>
-        ) : null}
+      <div className="detail-panel__body">
+        <div className="detail-panel__section">
+          <SectionTitle>当前观点</SectionTitle>
+          {viewpoint ? (
+            <div className="detail-card detail-card--focus">
+              <strong className="detail-card__title">{viewpoint.title}</strong>
+              <p className="detail-card__summary">{viewpoint.summary}</p>
+              <p className="detail-card__caption">{viewpoint.claim_statement}</p>
+              <InfoRow label="支持数" value={viewpoint.support_count} />
+              <InfoRow label="评论数" value={viewpoint.unique_comment_count} />
+              <InfoRow label="摘要扎实度" value={viewpoint.summary_grounding_score.toFixed(2)} accent />
+            </div>
+          ) : (
+            <EmptyState message="当前没有可展示的观点焦点。" />
+          )}
+        </div>
 
-        {storyline ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u5f53\u524d\u4e3b\u7ebf`}</p>
-            <strong>{storyline.title}</strong>
-            <p>{storyline.summary}</p>
-            <p className="muted">
-              {`${storyline.support_count} ${`\u652f\u6301`} / ${storyline.viewpoint_count} ${`\u89c2\u70b9`} / ${storyline.comment_count} ${`\u8bc4\u8bba`}`}
-            </p>
-          </div>
-        ) : null}
+        <div className="detail-panel__section">
+          <SectionTitle>当前主线</SectionTitle>
+          {storyline ? (
+            <div className="detail-card">
+              <div className="detail-card__badges">
+                {storylineLogicTone ? (
+                  <span className={`tone-pill tone-pill--${storylineLogicTone.tone}`}>
+                    {storylineLogicTone.label}
+                  </span>
+                ) : null}
+                {storylineEvidenceTone ? (
+                  <span className={`tone-pill tone-pill--${storylineEvidenceTone.tone}`}>
+                    {storylineEvidenceTone.label}
+                  </span>
+                ) : null}
+              </div>
+              <strong className="detail-card__title">{storyline.title}</strong>
+              <p className="detail-card__summary">{storyline.summary}</p>
+              <div className="detail-card__metrics">
+                <InfoRow label="支持" value={storyline.support_count} />
+                <InfoRow label="观点" value={storyline.viewpoint_count} />
+                <InfoRow label="评论" value={storyline.comment_count} />
+              </div>
+            </div>
+          ) : (
+            <EmptyState message="当前没有可展示的主线焦点。" />
+          )}
+        </div>
 
-        {bucketSnapshot ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u5f53\u524d\u65f6\u95f4\u6876`}</p>
-            <strong>
-              {`${formatBucketStart(bucketSnapshot.bucket_start, bucketSnapshot.bucket_granularity)} / ${`\u6876`} ${bucketSnapshot.bucket_index}`}
-            </strong>
-            <p className="muted">
-              {`${bucketSnapshot.support_count} ${`\u652f\u6301`} / ${bucketSnapshot.comment_count} ${`\u8bc4\u8bba`}`}
-            </p>
-          </div>
-        ) : null}
+        <div className="detail-panel__section">
+          <SectionTitle>当前时间桶</SectionTitle>
+          {bucketSnapshot ? (
+            <div className="detail-card">
+              <InfoRow
+                label="时间"
+                value={formatBucketStart(bucketSnapshot.bucket_start, bucketSnapshot.bucket_granularity)}
+                accent
+              />
+              <InfoRow label="桶序号" value={`T${bucketSnapshot.bucket_index}`} />
+              <InfoRow label="支持数" value={bucketSnapshot.support_count} />
+              <InfoRow label="评论数" value={bucketSnapshot.comment_count} />
+              <InfoRow label="热度指数" value={bucketSnapshot.storyline_heat_index.toFixed(3)} accent />
+              <InfoRow label="主导观点数" value={bucketSnapshot.top_viewpoint_ids.length} />
+            </div>
+          ) : (
+            <EmptyState message="当前时间桶没有可展示的快照。" />
+          )}
+        </div>
 
-        {(reasoning || model) ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u6a21\u578b\u53cd\u9988`}</p>
-            <strong>{model?.label ?? `\u672a\u9009\u6a21\u578b`}</strong>
-            <p>{reasoning?.explanation ?? `\u5f53\u524d\u4e3b\u7ebf\u6682\u65e0\u8be5\u6a21\u578b\u89e3\u91ca\u3002`}</p>
-            {reasoning ? <p className="muted">{reasoning.comparison_summary}</p> : null}
+        <div className="detail-panel__section">
+          <SectionTitle>预测模型</SectionTitle>
+          <div className="detail-panel__model-switcher" role="radiogroup" aria-label="预测模型">
+            {bundle.meta.available_models.map((availableModel) => {
+              const isActive = availableModel.id === focus.selectedModelId;
+              return (
+                <button
+                  key={availableModel.id}
+                  type="button"
+                  className={`detail-panel__model-button ${isActive ? "detail-panel__model-button--active" : ""}`}
+                  onClick={() => onModelChange(availableModel.id)}
+                  aria-pressed={isActive}
+                >
+                  <span className="detail-panel__model-label">{availableModel.label}</span>
+                  <span className="detail-panel__model-meta">
+                    {getModelCategoryLabel(availableModel.category)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        ) : null}
+          {(reasoning || model) ? (
+            <div className="detail-card detail-card--forecast">
+              {reasoning ? <p className="detail-card__summary">{reasoning.explanation}</p> : null}
+              {reasoning?.comparison_summary ? (
+                <p className="detail-card__caption">{reasoning.comparison_summary}</p>
+              ) : null}
+              {reasoning?.confidence_note ? (
+                <p className="detail-card__caption detail-card__caption--accent">{reasoning.confidence_note}</p>
+              ) : null}
+            </div>
+          ) : (
+            <EmptyState message="当前主线还没有这个模型的解释信息。" />
+          )}
+        </div>
 
-        {focus.activePrimaryView === "relationships" ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u5173\u7cfb\u7126\u70b9`}</p>
-            <p className="muted">
-              {`${relationshipScope.lanes.length} ${`\u6761\u6cf3\u9053`} / ${relationshipScope.externalAnchors.length} ${`\u4e2a\u5916\u90e8\u951a\u70b9`}`}
-            </p>
-            <p>
-              {relationshipScope.requestedViewpointId &&
-              relationshipScope.displayViewpointId &&
-              relationshipScope.requestedViewpointId !== relationshipScope.displayViewpointId
-                ? `\u5f53\u524d\u6876\u5185\u5df2\u5c40\u90e8\u5207\u5230\u4e3b\u5bfc\u89c2\u70b9\uff0c\u5c1a\u672a\u5199\u56de\u5168\u5c40\u3002`
-                : `\u5f53\u524d\u89c2\u70b9\u4ecd\u5360\u636e\u5173\u7cfb\u4e3b\u821e\u53f0\u3002`}
-            </p>
-          </div>
-        ) : null}
-
-        {focus.activePrimaryView === "relationships" && relationshipScope.externalAnchors.length ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u5916\u90e8\u5f71\u54cd`}</p>
-            <ul className="compact-list compact-list--tight">
-              {relationshipScope.externalAnchors.slice(0, 3).map((anchor) => (
-                <li key={anchor.id}>
-                  <strong>{anchor.label}</strong>
-                  <div className="muted">
-                    {`${anchor.direction === "incoming" ? `\u6d41\u5165` : `\u6d41\u51fa`} / ${formatRelationLabel(anchor.relationType)}`}
+        {relationshipAnchors.length ? (
+          <div className="detail-panel__section">
+            <SectionTitle>关系外部锚点</SectionTitle>
+            <div className="detail-panel__anchor-list">
+              {relationshipAnchors.map((anchor) => {
+                const tone = getRelationTypeTone(anchor.relationType);
+                return (
+                  <div key={anchor.id} className="detail-card detail-card--compact">
+                    <div className="detail-card__badges">
+                      <span className={`tone-pill tone-pill--${tone.tone}`}>{tone.label}</span>
+                      <span className="tone-pill tone-pill--muted">
+                        {anchor.direction === "incoming" ? "流入" : "流出"}
+                      </span>
+                    </div>
+                    <strong className="detail-card__title">{anchor.label}</strong>
+                    <p className="detail-card__caption">{anchor.summary}</p>
+                    <InfoRow label="权重" value={anchor.weight.toFixed(2)} accent />
                   </div>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           </div>
         ) : null}
 
-        {traceability ? (
-          <div className="mini-card">
-            <p className="eyebrow">{`\u8ffd\u6eaf`}</p>
-            <p className="muted">
-              {`${traceability.viewpoint_ids.length} ${`\u89c2\u70b9`} / ${traceability.claim_ids.length} Claims / ${traceability.comment_ids.length} ${`\u8bc4\u8bba`}`}
-            </p>
-            <p>{traceability.viewpoint_ids.join(" / ")}</p>
+        <div className="detail-panel__section">
+          <SectionTitle>追溯</SectionTitle>
+          {traceability ? (
+            <div className="detail-card">
+              <InfoRow label="观点" value={traceability.viewpoint_ids.length} />
+              <InfoRow label="Claims" value={traceability.claim_ids.length} />
+              <InfoRow label="评论" value={traceability.comment_ids.length} />
+              <p className="detail-card__caption">
+                {traceability.viewpoint_ids.length
+                  ? traceability.viewpoint_ids.join(" / ")
+                  : "当前主线没有可展示的观点追溯。"}
+              </p>
+            </div>
+          ) : (
+            <EmptyState message="当前主线没有追溯记录。" />
+          )}
+        </div>
+
+        <div className="detail-panel__section">
+          <SectionTitle>热度公式</SectionTitle>
+          <div className="detail-card detail-card--compact">
+            <p className="detail-card__caption">{bundle.reasoning.heat_index_formula.description}</p>
+            <div className="detail-panel__weights">
+              {heatWeights.map(([key, value]) => (
+                <InfoRow key={key} label={key} value={value} accent />
+              ))}
+            </div>
           </div>
-        ) : null}
+        </div>
       </div>
     </section>
   );
