@@ -52,6 +52,7 @@ interface ClusterCanvasLayout {
   particleCount: number;
   cx: number;
   cy: number;
+  boundaryRadius: number;
 }
 
 interface ParticleCanvasLayout {
@@ -187,14 +188,16 @@ function createCanvasLayout(
   const orbitRadius = Math.min(width, height) * 0.28;
 
   const clusterLayouts = clusters.map((cluster, index) => {
-    const angle = clusterCount === 1 ? -Math.PI / 2 : (index / clusterCount) * Math.PI * 2 - Math.PI / 2;
+    const angle = clusterCount === 1 ? 0 : (index / clusterCount) * Math.PI * 2 - Math.PI / 2;
+    const boundaryRadius = Math.max(clusterCount === 1 ? 78 : 58, 36 + Math.sqrt(cluster.particleCount) * 18);
     return {
       id: cluster.id,
       label: cluster.label,
       accentColor: cluster.accentColor,
       particleCount: cluster.particleCount,
-      cx: width / 2 + Math.cos(angle) * orbitRadius,
-      cy: height / 2 + Math.sin(angle) * orbitRadius * 0.82
+      cx: clusterCount === 1 ? width / 2 : width / 2 + Math.cos(angle) * orbitRadius,
+      cy: clusterCount === 1 ? height / 2 : height / 2 + Math.sin(angle) * orbitRadius * 0.82,
+      boundaryRadius
     };
   });
 
@@ -204,14 +207,15 @@ function createCanvasLayout(
     const clusterLayout = layoutByClusterId.get(particle.clusterId);
     const baseX = clusterLayout?.cx ?? width / 2;
     const baseY = clusterLayout?.cy ?? height / 2;
-    const spread = clusterCount === 1 ? 56 : 40;
+    const spread = Math.max(22, (clusterLayout?.boundaryRadius ?? (clusterCount === 1 ? 78 : 58)) - 18);
     const angle = ((index % 12) / 12) * Math.PI * 2;
+    const distanceFactor = 0.26 + Math.random() * 0.54;
 
     return {
       id: particle.particleId,
       clusterId: particle.clusterId,
-      x: baseX + Math.cos(angle) * spread * (0.35 + Math.random() * 0.65),
-      y: baseY + Math.sin(angle) * spread * (0.35 + Math.random() * 0.65),
+      x: baseX + Math.cos(angle) * spread * distanceFactor,
+      y: baseY + Math.sin(angle) * spread * distanceFactor,
       vx: (Math.random() - 0.5) * 0.22,
       vy: (Math.random() - 0.5) * 0.22,
       radius: particle.size,
@@ -321,6 +325,14 @@ function ParticleFieldCanvas({
       context.globalAlpha = 0.42;
       for (const clusterLayout of clusterLayouts) {
         context.beginPath();
+        context.setLineDash([7, 7]);
+        context.arc(clusterLayout.cx, clusterLayout.cy, clusterLayout.boundaryRadius, 0, Math.PI * 2);
+        context.strokeStyle = `${clusterLayout.accentColor}32`;
+        context.lineWidth = 1;
+        context.stroke();
+        context.setLineDash([]);
+
+        context.beginPath();
         context.arc(clusterLayout.cx, clusterLayout.cy, 18, 0, Math.PI * 2);
         context.strokeStyle = `${clusterLayout.accentColor}66`;
         context.lineWidth = 1.2;
@@ -337,15 +349,43 @@ function ParticleFieldCanvas({
       }
       context.restore();
 
+      const clusterLayoutById = new Map(clusterLayouts.map((layout) => [layout.id, layout]));
       for (const particleLayout of particleLayouts) {
+        const clusterLayout = clusterLayoutById.get(particleLayout.clusterId);
+        if (clusterLayout) {
+          const attractionX = clusterLayout.cx - particleLayout.x;
+          const attractionY = clusterLayout.cy - particleLayout.y;
+          particleLayout.vx += attractionX * 0.0008;
+          particleLayout.vy += attractionY * 0.0008;
+        }
+
+        const speed = Math.hypot(particleLayout.vx, particleLayout.vy);
+        if (speed > 0.72) {
+          particleLayout.vx = (particleLayout.vx / speed) * 0.72;
+          particleLayout.vy = (particleLayout.vy / speed) * 0.72;
+        }
+
         particleLayout.x += particleLayout.vx;
         particleLayout.y += particleLayout.vy;
 
-        if (particleLayout.x < 18 || particleLayout.x > width - 18) {
-          particleLayout.vx *= -1;
-        }
-        if (particleLayout.y < 18 || particleLayout.y > height - 18) {
-          particleLayout.vy *= -1;
+        if (clusterLayout) {
+          const offsetX = particleLayout.x - clusterLayout.cx;
+          const offsetY = particleLayout.y - clusterLayout.cy;
+          const offsetDistance = Math.hypot(offsetX, offsetY) || 1;
+          const maxDistance = Math.max(18, clusterLayout.boundaryRadius - particleLayout.radius - 4);
+
+          if (offsetDistance > maxDistance) {
+            const normalX = offsetX / offsetDistance;
+            const normalY = offsetY / offsetDistance;
+            const radialVelocity = particleLayout.vx * normalX + particleLayout.vy * normalY;
+
+            particleLayout.x = clusterLayout.cx + normalX * maxDistance;
+            particleLayout.y = clusterLayout.cy + normalY * maxDistance;
+            particleLayout.vx -= radialVelocity * 1.8 * normalX;
+            particleLayout.vy -= radialVelocity * 1.8 * normalY;
+            particleLayout.vx -= normalX * 0.04;
+            particleLayout.vy -= normalY * 0.04;
+          }
         }
 
         if (Math.random() < 0.015) {
@@ -364,6 +404,24 @@ function ParticleFieldCanvas({
           }
 
           const distance = Math.hypot(left.x - right.x, left.y - right.y);
+          const minDistance = left.radius + right.radius + 2;
+
+          if (distance < minDistance) {
+            const safeDistance = distance || 0.001;
+            const normalX = (left.x - right.x) / safeDistance;
+            const normalY = (left.y - right.y) / safeDistance;
+            const overlap = (minDistance - safeDistance) / 2;
+
+            left.x += normalX * overlap;
+            left.y += normalY * overlap;
+            right.x -= normalX * overlap;
+            right.y -= normalY * overlap;
+            left.vx += normalX * 0.03;
+            left.vy += normalY * 0.03;
+            right.vx -= normalX * 0.03;
+            right.vy -= normalY * 0.03;
+          }
+
           if (distance > 88) {
             continue;
           }
@@ -528,7 +586,9 @@ export function EvidencePanel({ bundle, scope, onBucketSelect, onEvidenceFocus }
               onClick={() => onBucketSelect(bucket.bucketIndex)}
             >
               <span className="evidence-bucket__eyebrow">{`T${bucket.bucketIndex}`}</span>
-              <strong>{formatBucketStart(bucket.bucketStart, bundle.meta.bucket_granularity)}</strong>
+              <span className="evidence-bucket__date">
+                {formatBucketStart(bucket.bucketStart, bundle.meta.bucket_granularity)}
+              </span>
               <span className="evidence-bucket__meta">
                 {`${bucket.clusterCount} ${`\u7c07`} / ${bucket.particleCount} ${`\u7c92\u5b50`}`}
               </span>

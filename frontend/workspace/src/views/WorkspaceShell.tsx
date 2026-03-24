@@ -1,7 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { StorylineSwitchHeader } from "../components/StorylineSwitchHeader";
-import { ViewStatusCard } from "../components/ViewStatusCard";
-import { formatBucketStart, getPublishedForecastSummary } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
 import {
   getEvidencePostureTone,
@@ -106,15 +104,8 @@ export function WorkspaceShell({
     null;
   const relationshipScope = getScopedRelationshipState(bundle, effectiveFocus);
   const evidenceScope = getScopedEvidenceState(bundle, effectiveFocus);
-  const visibleEvidenceClusterCount =
-    evidenceScope.evidenceClusters.length > 0
-      ? evidenceScope.evidenceClusters.length
-      : new Set(evidenceScope.particles.map((particle) => particle.viewpoint_id)).size;
-  const activeForecastSummary =
-    selectedStoryline ? getPublishedForecastSummary(bundle, selectedStoryline.storyline_id) : null;
   const activeModel =
     bundle.meta.available_models.find((model) => model.id === effectiveFocus.selectedModelId) ?? null;
-  const activeModelLabel = activeModel?.label ?? effectiveFocus.selectedModelId;
   const relationshipViewpointTitle =
     relationshipScope.displayViewpointId === null
       ? `\u65e0\u7126\u70b9`
@@ -213,7 +204,6 @@ export function WorkspaceShell({
                   setLocalOverride(null);
                   onStorylineSelect(storylineId);
                 }}
-                title={selectedStoryline?.title ?? bundle.meta.case_title}
               />
 
               {effectiveFocus.activePrimaryView === "relationships" ? (
@@ -270,44 +260,6 @@ export function WorkspaceShell({
             impactSummary={impactSummary}
             onModelChange={onModelChange}
           />
-          <div className="preview-rail">
-            <ViewStatusCard
-              label={`\u4e3b\u7ebf`}
-              summary={selectedStoryline ? selectedStoryline.title : `\u672a\u9009\u4e3b\u7ebf`}
-              detail={
-                activeForecastSummary
-                  ? `${activeModelLabel} / ${formatBucketStart(
-                      activeForecastSummary.bucket_start,
-                      activeForecastSummary.bucket_granularity
-                    )}`
-                  : `${`\u5f53\u524d\u6a21\u578b`} ${activeModelLabel}`
-              }
-              isActive={effectiveFocus.activePrimaryView === "storylines"}
-              onSelect={() => onPrimaryViewChange("storylines")}
-            />
-            <ViewStatusCard
-              label={`\u5173\u7cfb`}
-              summary={relationshipViewpointTitle}
-              detail={
-                relationshipScope.resolvedBucketIndex !== null
-                  ? `${`\u6876`} ${relationshipScope.resolvedBucketIndex} / ${relationshipScope.lanes.length} ${`\u6761\u6cf3\u9053`}`
-                  : `\u5f53\u524d\u6ca1\u6709\u5173\u7cfb\u4e0a\u4e0b\u6587`
-              }
-              isActive={effectiveFocus.activePrimaryView === "relationships"}
-              onSelect={() => onPrimaryViewChange("relationships")}
-            />
-            <ViewStatusCard
-              label={`\u8bc1\u636e`}
-              summary={`${visibleEvidenceClusterCount} ${`\u4e2a\u7c07`} / ${evidenceScope.particles.length} ${`\u4e2a\u7c92\u5b50`}`}
-              detail={
-                evidenceScope.resolvedBucketIndex !== null
-                  ? `${`\u6876`} ${evidenceScope.resolvedBucketIndex}`
-                  : `\u5f53\u524d\u6ca1\u6709\u8bc1\u636e\u5207\u7247`
-              }
-              isActive={effectiveFocus.activePrimaryView === "evidence"}
-              onSelect={() => onPrimaryViewChange("evidence")}
-            />
-          </div>
         </aside>
       </main>
     </div>

@@ -177,7 +177,6 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
         storylines={storylines}
         activeStorylineId={selectedStorylineId}
         onStorylineSelect={onStorylineSelect}
-        title={selectedStoryline?.title ?? bundle.meta.case_title}
       />
 
       <div className="storyline-stream__stage">
