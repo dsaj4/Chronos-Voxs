@@ -114,6 +114,11 @@ function getWorkspaceImpactSummary(
   relationshipScope: ScopedRelationshipState,
   evidenceScope: ScopedEvidenceState
 ): string {
+  const visibleEvidenceClusterCount =
+    evidenceScope.evidenceClusters.length > 0
+      ? evidenceScope.evidenceClusters.length
+      : new Set(evidenceScope.particles.map((particle) => particle.viewpoint_id)).size;
+
   if (activeView === "relationships") {
     return relationshipScope.resolvedBucketIndex !== null
       ? `${`\u5173\u7cfb\u89c6\u56fe\u805a\u7126`} ${relationshipViewpointTitle} / ${`\u6876`} ${relationshipScope.resolvedBucketIndex}`
@@ -122,7 +127,7 @@ function getWorkspaceImpactSummary(
 
   if (activeView === "evidence") {
     return evidenceScope.resolvedBucketIndex !== null
-      ? `${`\u8bc1\u636e\u89c6\u56fe\u805a\u7126`} ${`\u6876`} ${evidenceScope.resolvedBucketIndex} / ${evidenceScope.evidenceClusters.length} ${`\u7c07`}`
+      ? `${`\u8bc1\u636e\u89c6\u56fe\u805a\u7126`} ${`\u6876`} ${evidenceScope.resolvedBucketIndex} / ${visibleEvidenceClusterCount} ${`\u7c07`}`
       : `\u8bc1\u636e\u89c6\u56fe\u6682\u65e0\u5207\u7247`;
   }
 
@@ -166,6 +171,10 @@ export function WorkspaceShell({
     null;
   const relationshipScope = getScopedRelationshipState(bundle, effectiveFocus);
   const evidenceScope = getScopedEvidenceState(bundle, effectiveFocus);
+  const visibleEvidenceClusterCount =
+    evidenceScope.evidenceClusters.length > 0
+      ? evidenceScope.evidenceClusters.length
+      : new Set(evidenceScope.particles.map((particle) => particle.viewpoint_id)).size;
   const activeForecastSummary =
     selectedStoryline ? getPublishedForecastSummary(bundle, selectedStoryline.storyline_id) : null;
   const activeModel =
@@ -353,7 +362,7 @@ export function WorkspaceShell({
             />
             <ViewStatusCard
               label={`\u8bc1\u636e`}
-              summary={`${evidenceScope.evidenceClusters.length} ${`\u4e2a\u7c07`} / ${evidenceScope.particles.length} ${`\u4e2a\u7c92\u5b50`}`}
+              summary={`${visibleEvidenceClusterCount} ${`\u4e2a\u7c07`} / ${evidenceScope.particles.length} ${`\u4e2a\u7c92\u5b50`}`}
               detail={
                 evidenceScope.resolvedBucketIndex !== null
                   ? `${`\u6876`} ${evidenceScope.resolvedBucketIndex}`

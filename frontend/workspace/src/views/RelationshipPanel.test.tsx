@@ -23,7 +23,7 @@ function createFocus(overrides: Partial<WorkspaceFocusState>): WorkspaceFocusSta
 }
 
 describe("RelationshipPanel", () => {
-  it("renders a time-viewpoint evolution stage with lanes and external anchors", () => {
+  it("renders an SVG relationship stage with legend, nodes, and lane strip", () => {
     const bundle = createPublishedBundleFixture();
     const scope = getScopedRelationshipState(bundle, createFocus({}));
 
@@ -32,9 +32,26 @@ describe("RelationshipPanel", () => {
     );
 
     expect(markup).toContain("relationship-stage");
-    expect(markup).toContain("relationship-stage__timeline");
-    expect(markup).toContain("relationship-lane");
+    expect(markup).toContain("relationship-stage__legend");
+    expect(markup).toContain("<svg");
     expect(markup).toContain("relationship-node");
-    expect(markup).toContain("relationship-anchor");
+    expect(markup).toContain("relationship-stage__lane-strip");
+  });
+
+  it("falls back to the nearest bucket with relationship context", () => {
+    const bundle = createPublishedBundleFixture();
+    const scope = getScopedRelationshipState(bundle, createFocus({ activeBucketIndex: 2 }));
+
+    expect(scope.resolvedBucketIndex).toBe(1);
+  });
+
+  it("keeps the requested viewpoint as the primary lane when it exists in the bucket", () => {
+    const bundle = createPublishedBundleFixture();
+    const scope = getScopedRelationshipState(
+      bundle,
+      createFocus({ activeBucketIndex: 1, activeViewpointId: "vp_003" })
+    );
+
+    expect(scope.lanes[0]?.viewpointId).toBe("vp_003");
   });
 });

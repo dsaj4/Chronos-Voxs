@@ -1,7 +1,10 @@
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { formatBucketStart } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
-import { getRelationTypeTone } from "../presentation/workspaceChrome";
 import type { ScopedRelationshipState } from "../state/focusSelectors";
+
+type RelationType = PublishedBundle["neural_map"]["viewpoint_relations"][number]["relation_type"];
+type PublishedRelation = PublishedBundle["neural_map"]["viewpoint_relations"][number];
 
 interface RelationshipPanelProps {
   bundle: PublishedBundle;
@@ -9,28 +12,69 @@ interface RelationshipPanelProps {
   onNodeSelect: (input: { viewpointId: string; bucketIndex: number }) => void;
 }
 
-function getRelationLabel(relationType: string | null): string {
-  return getRelationTypeTone(relationType).label;
+interface RelationStyle {
+  color: string;
+  dashArray?: string;
+  label: string;
 }
 
-function getRelationToneClass(relationType: string | null): string {
-  switch (relationType) {
-    case "reinforces":
-      return "relationship-tone--reinforces";
-    case "constrains":
-      return "relationship-tone--constrains";
-    case "depends_on":
-      return "relationship-tone--depends";
-    case "competes_with":
-      return "relationship-tone--competes";
-    case "qualifies":
-      return "relationship-tone--qualifies";
-    default:
-      return "relationship-tone--current";
+const RELATION_STYLE: Record<RelationType, RelationStyle> = {
+  reinforces: { color: "#6FCF97", label: "\u589e\u5f3a" },
+  competes_with: { color: "#EB5757", dashArray: "8 5", label: "\u7ade\u4e89" },
+  constrains: { color: "#F2C94C", dashArray: "10 6", label: "\u538b\u5236" },
+  depends_on: { color: "#56CCF2", dashArray: "4 4", label: "\u4f9d\u8d56" },
+  qualifies: { color: "#CE93D8", dashArray: "14 6", label: "\u9650\u5b9a" }
+};
+
+const TIME_AXIS_HEIGHT = 38;
+const LANE_HEIGHT = 68;
+const LANE_GAP = 18;
+const BUCKET_WIDTH = 92;
+const NODE_RADIUS = 7;
+
+function getRelationStyle(relationType: RelationType | null, isCurrent = false): RelationStyle {
+  if (isCurrent || relationType === null) {
+    return { color: "#56CCF2", label: "\u4e3b\u89d2\u8f68\u8ff9" };
   }
+  return RELATION_STYLE[relationType];
+}
+
+function resolveRelationBucketIndex(
+  relation: PublishedRelation,
+  scope: ScopedRelationshipState
+): number | null {
+  const activeBucketIndex = scope.resolvedBucketIndex;
+  const sourceLane = scope.lanes.find((lane) => lane.viewpointId === relation.source_viewpoint_id);
+  const targetLane = scope.lanes.find((lane) => lane.viewpointId === relation.target_viewpoint_id);
+
+  if (!sourceLane || !targetLane) {
+    return null;
+  }
+
+  const sharedBucketIndexes = sourceLane.points
+    .filter(
+      (point) =>
+        point.hasSnapshot &&
+        targetLane.points.some(
+          (candidate) => candidate.bucketIndex === point.bucketIndex && candidate.hasSnapshot
+        )
+    )
+    .map((point) => point.bucketIndex);
+
+  if (!sharedBucketIndexes.length) {
+    return null;
+  }
+
+  if (activeBucketIndex !== null && sharedBucketIndexes.includes(activeBucketIndex)) {
+    return activeBucketIndex;
+  }
+
+  return sharedBucketIndexes.at(-1) ?? null;
 }
 
 export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipPanelProps) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+
   const storyline =
     scope.storylineId === null
       ? null
@@ -40,11 +84,40 @@ export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipP
       ? null
       : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === scope.displayViewpointId) ?? null;
 
+  const laneIndexById = useMemo(
+    () => new Map(scope.lanes.map((lane, index) => [lane.viewpointId, index])),
+    [scope.lanes]
+  );
+  const bucketOffsetByIndex = useMemo(
+    () => new Map(scope.timelineBuckets.map((bucket, index) => [bucket.bucketIndex, index])),
+    [scope.timelineBuckets]
+  );
+
+  const svgWidth = Math.max(scope.timelineBuckets.length * BUCKET_WIDTH + 120, 640);
+  const svgHeight =
+    TIME_AXIS_HEIGHT + scope.lanes.length * LANE_HEIGHT + Math.max(scope.lanes.length - 1, 0) * LANE_GAP + 28;
+
+  const getX = useCallback(
+    (bucketIndex: number) => 56 + (bucketOffsetByIndex.get(bucketIndex) ?? 0) * BUCKET_WIDTH,
+    [bucketOffsetByIndex]
+  );
+  const getY = useCallback(
+    (laneIndex: number) => TIME_AXIS_HEIGHT + laneIndex * (LANE_HEIGHT + LANE_GAP) + LANE_HEIGHT / 2,
+    []
+  );
+
+  useEffect(() => {
+    if (!viewportRef.current || scope.resolvedBucketIndex === null) {
+      return;
+    }
+
+    const targetX = getX(scope.resolvedBucketIndex) - viewportRef.current.clientWidth / 2;
+    viewportRef.current.scrollLeft = Math.max(0, targetX);
+  }, [getX, scope.resolvedBucketIndex]);
+
   if (!storyline || !scope.lanes.length || !scope.timelineBuckets.length) {
     return <div className="empty-state">{`\u5173\u7cfb\u89c6\u56fe\u5f53\u524d\u6ca1\u6709\u53ef\u6e32\u67d3\u7684\u65f6\u95f4-\u89c2\u70b9\u6f14\u5316\u56fe\u3002`}</div>;
   }
-
-  const columns = `260px repeat(${scope.timelineBuckets.length}, minmax(104px, 1fr))`;
 
   return (
     <section className="panel relationship-panel relationship-panel--signal">
@@ -54,7 +127,7 @@ export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipP
           <h2>{`\u65f6\u95f4-\u89c2\u70b9\u6f14\u5316\u56fe`}</h2>
           <p className="muted">
             {displayViewpoint
-              ? `${displayViewpoint.title} ${`\u662f\u5f53\u524d\u4e3b\u821e\u53f0\u89c2\u70b9\u3002\u5c40\u90e8\u5207\u6876\u6216\u5207\u70b9\u4e0d\u4f1a\u7834\u574f\u5168\u5c40\u5171\u4eab\u7126\u70b9\u3002`}`
+              ? `${displayViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u4e3b\u89c2\u70b9\u3002\u8282\u70b9\u70b9\u51fb\u4f1a\u53ea\u5728\u5de5\u4f5c\u53f0\u5185\u90e8\u5207\u6876\u548c\u5207\u70b9\u3002`}`
               : `\u5f53\u524d\u89c2\u70b9\u4e0d\u53ef\u7528\u3002`}
           </p>
         </div>
@@ -73,128 +146,236 @@ export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipP
         <span className="pill">{storyline.title}</span>
         {displayViewpoint ? <span className="pill">{`${`\u5f53\u524d\u89c2\u70b9`} ${displayViewpoint.title}`}</span> : null}
         {scope.resolvedBucketStart ? (
-          <span className="pill">
-            {formatBucketStart(scope.resolvedBucketStart, bundle.meta.bucket_granularity)}
-          </span>
+          <span className="pill">{formatBucketStart(scope.resolvedBucketStart, bundle.meta.bucket_granularity)}</span>
         ) : null}
       </div>
 
       <div className="relationship-stage">
-        <div className="relationship-stage__timeline" style={{ gridTemplateColumns: columns }}>
-          <div className="relationship-stage__stub">
-            <span>{`\u89c2\u70b9\u6cf3\u9053`}</span>
-            <strong>{`\u65f6\u95f4 / \u89c2\u70b9 \u5173\u7cfb\u821e\u53f0`}</strong>
-          </div>
-          {scope.timelineBuckets.map((bucket) => (
-            <div
-              key={bucket.bucketIndex}
-              className={`relationship-stage__bucket ${bucket.isActiveBucket ? "relationship-stage__bucket--active" : ""}`}
-            >
-              <strong>{formatBucketStart(bucket.bucketStart, bundle.meta.bucket_granularity)}</strong>
-              <span>{`Heat ${bucket.storylineHeatIndex}`}</span>
-              <span className="relationship-stage__bucket-meta">
-                {bucket.hasDisplayViewpoint
-                  ? `\u5f53\u524d\u89c2\u70b9\u5728\u573a`
-                  : bucket.hasRequestedViewpoint
-                    ? `\u8bf7\u6c42\u89c2\u70b9\u5728\u573a`
-                    : `\u89c2\u70b9\u7f3a\u5e2d`}
-              </span>
+        <div className="relationship-stage__legend">
+          {Object.entries(RELATION_STYLE).map(([relationType, style]) => (
+            <div key={relationType} className="relationship-stage__legend-item">
+              <svg width="20" height="10" aria-hidden="true">
+                <line
+                  x1="1"
+                  y1="5"
+                  x2="19"
+                  y2="5"
+                  stroke={style.color}
+                  strokeWidth="1.8"
+                  strokeDasharray={style.dashArray}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span>{style.label}</span>
             </div>
           ))}
         </div>
 
-        <div className="relationship-stage__lanes">
+        <div className="relationship-stage__frame">
+          <div className="relationship-stage__lane-pins" aria-hidden="true">
+            {scope.lanes.map((lane, index) => {
+              const tone = getRelationStyle(lane.relationTypeHint, lane.isCurrent);
+              return (
+                <div
+                  key={`pin-${lane.viewpointId}`}
+                  className="relationship-stage__lane-pin"
+                  style={{ top: `${getY(index) - 11}px` }}
+                >
+                  <span
+                    className={`relationship-stage__lane-dot ${
+                      lane.isCurrent ? "relationship-stage__lane-dot--current" : ""
+                    }`}
+                    style={{ background: tone.color }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          <div ref={viewportRef} className="relationship-stage__viewport">
+            <svg
+              className="relationship-stage__svg"
+              width={svgWidth}
+              height={svgHeight}
+              role="img"
+              aria-label={"\u65f6\u95f4-\u89c2\u70b9\u6f14\u5316\u821e\u53f0"}
+            >
+              {scope.timelineBuckets.map((bucket) => {
+                const x = getX(bucket.bucketIndex);
+                return (
+                  <g key={`bucket-${bucket.bucketIndex}`}>
+                    <line
+                      x1={x}
+                      y1={TIME_AXIS_HEIGHT - 4}
+                      x2={x}
+                      y2={svgHeight - 8}
+                      stroke={
+                        bucket.isActiveBucket ? "rgba(86, 204, 242, 0.18)" : "rgba(86, 204, 242, 0.06)"
+                      }
+                      strokeWidth={bucket.isActiveBucket ? 1.6 : 1}
+                    />
+                    <text
+                      className="relationship-stage__axis-label"
+                      x={x}
+                      y={TIME_AXIS_HEIGHT - 14}
+                      textAnchor="middle"
+                    >
+                      {formatBucketStart(bucket.bucketStart, bundle.meta.bucket_granularity)}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {scope.lanes.map((lane, index) => {
+                const y = getY(index);
+                return (
+                  <g key={`band-${lane.viewpointId}`}>
+                    <rect
+                      x={0}
+                      y={y - LANE_HEIGHT / 2}
+                      width={svgWidth}
+                      height={LANE_HEIGHT}
+                      fill={lane.isCurrent ? "rgba(86, 204, 242, 0.035)" : "rgba(8, 14, 21, 0.28)"}
+                      rx={18}
+                    />
+                    <line
+                      x1={18}
+                      y1={y}
+                      x2={svgWidth - 18}
+                      y2={y}
+                      stroke={lane.isCurrent ? "rgba(86, 204, 242, 0.18)" : "rgba(160, 184, 214, 0.08)"}
+                      strokeDasharray={lane.isCurrent ? undefined : "3 6"}
+                    />
+                  </g>
+                );
+              })}
+
+              {scope.viewpointRelations.map((relation) => {
+                const sourceLaneIndex = laneIndexById.get(relation.source_viewpoint_id);
+                const targetLaneIndex = laneIndexById.get(relation.target_viewpoint_id);
+                const relationBucketIndex = resolveRelationBucketIndex(relation, scope);
+
+                if (
+                  sourceLaneIndex === undefined ||
+                  targetLaneIndex === undefined ||
+                  relationBucketIndex === null
+                ) {
+                  return null;
+                }
+
+                const style = RELATION_STYLE[relation.relation_type];
+                const x = getX(relationBucketIndex);
+                const sourceY = getY(sourceLaneIndex);
+                const targetY = getY(targetLaneIndex);
+                const bendX = x + 24;
+
+                return (
+                  <path
+                    key={relation.relation_id}
+                    className="relationship-stage__relation"
+                    d={`M ${x} ${sourceY} C ${bendX} ${sourceY}, ${bendX} ${targetY}, ${x} ${targetY}`}
+                    stroke={style.color}
+                    strokeWidth={1 + relation.weight * 1.4}
+                    strokeDasharray={style.dashArray}
+                    strokeLinecap="round"
+                    fill="none"
+                    opacity={0.72}
+                  />
+                );
+              })}
+
+              {scope.lanes.map((lane, laneIndex) => {
+                const visiblePoints = lane.points.filter((point) => point.hasSnapshot);
+                if (!visiblePoints.length) {
+                  return null;
+                }
+
+                const tone = getRelationStyle(lane.relationTypeHint, lane.isCurrent);
+                const trackPath = visiblePoints
+                  .map((point, pointIndex) => {
+                    const x = getX(point.bucketIndex);
+                    const y = getY(laneIndex);
+                    return `${pointIndex === 0 ? "M" : "L"} ${x} ${y}`;
+                  })
+                  .join(" ");
+
+                return (
+                  <g key={`lane-${lane.viewpointId}`}>
+                    <path
+                      d={trackPath}
+                      stroke={tone.color}
+                      strokeWidth={lane.isCurrent ? 2.4 : 1.4}
+                      strokeOpacity={lane.isCurrent ? 1 : 0.42}
+                      fill="none"
+                      strokeLinecap="round"
+                    />
+
+                    {visiblePoints.map((point) => {
+                      const cx = getX(point.bucketIndex);
+                      const cy = getY(laneIndex);
+                      const radius = point.isActiveBucket ? NODE_RADIUS + 2 : NODE_RADIUS;
+                      const diamond = `${cx},${cy - radius} ${cx + radius},${cy} ${cx},${cy + radius} ${cx - radius},${cy}`;
+
+                      return (
+                        <g
+                          key={`${lane.viewpointId}-${point.bucketIndex}`}
+                          className="relationship-node"
+                          onClick={() =>
+                            onNodeSelect({ viewpointId: lane.viewpointId, bucketIndex: point.bucketIndex })
+                          }
+                          style={{ cursor: "pointer" }}
+                        >
+                          {point.isActiveBucket ? (
+                            <circle
+                              cx={cx}
+                              cy={cy}
+                              r={radius + 5}
+                              fill="rgba(86, 204, 242, 0.12)"
+                              stroke="rgba(86, 204, 242, 0.24)"
+                              strokeWidth={1}
+                            />
+                          ) : null}
+                          <polygon
+                            points={diamond}
+                            fill={tone.color}
+                            fillOpacity={lane.isCurrent ? 0.96 : 0.76}
+                            stroke={point.isActiveBucket ? "rgba(245, 250, 255, 0.88)" : "rgba(7, 15, 25, 0.92)"}
+                            strokeWidth={point.isActiveBucket ? 1.3 : 0.8}
+                          />
+                          <title>{`${lane.title} / T${point.bucketIndex} / Heat ${point.heatIndex ?? "-"}`}</title>
+                        </g>
+                      );
+                    })}
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+
+        <div className="relationship-stage__lane-strip">
           {scope.lanes.map((lane) => {
-            const toneClass = getRelationToneClass(lane.isCurrent ? null : lane.relationTypeHint);
+            const tone = getRelationStyle(lane.relationTypeHint, lane.isCurrent);
+
             return (
               <div
-                key={lane.viewpointId}
-                className={`relationship-lane ${lane.isCurrent ? "relationship-lane--current" : "relationship-lane--peer"}`}
+                key={`strip-${lane.viewpointId}`}
+                className={`relationship-stage__lane-tag ${
+                  lane.isCurrent ? "relationship-stage__lane-tag--current" : ""
+                }`}
               >
-                <div className="relationship-lane__label">
-                  <div className="relationship-lane__label-top">
-                    <strong>{lane.title}</strong>
-                    <span className={`tone-pill ${lane.isCurrent ? "tone-pill--focus" : "tone-pill--muted"}`}>
-                      {lane.isCurrent ? `\u5f53\u524d\u4e3b\u89d2` : getRelationLabel(lane.relationTypeHint)}
-                    </span>
-                  </div>
-                  <span>{lane.isCurrent ? `\u5f53\u524d\u89c2\u70b9\u8f68\u8ff9` : `${lane.topicTag} / ${`\u540c\u4e3b\u7ebf\u5173\u8054`}`}</span>
-                  <div className="relationship-lane__label-meta">
-                    <span>{`Score ${lane.score}`}</span>
-                    <span>{lane.isPeer ? `\u5bf9\u5f53\u524d\u89c2\u70b9\u53ef\u89c1` : `\u5168\u5c40\u9ad8\u5149`}</span>
-                  </div>
+                <div className="relationship-stage__lane-tag-head">
+                  <span className="relationship-stage__lane-tag-dot" style={{ background: tone.color }} />
+                  <strong>{lane.title}</strong>
                 </div>
-                <div className="relationship-lane__track" style={{ gridTemplateColumns: `repeat(${scope.timelineBuckets.length}, minmax(104px, 1fr))` }}>
-                  {lane.points.map((point, index) => {
-                    const nextPoint = lane.points[index + 1] ?? null;
-                    return (
-                      <div key={`${lane.viewpointId}-${point.bucketIndex}`} className="relationship-cell">
-                        {nextPoint ? (
-                          <span
-                            className={`relationship-cell__connector ${toneClass} ${
-                              point.hasSnapshot && nextPoint.hasSnapshot
-                                ? "relationship-cell__connector--solid"
-                                : "relationship-cell__connector--faded"
-                            }`}
-                          />
-                        ) : null}
-                        {point.hasSnapshot ? (
-                          <button
-                            type="button"
-                            className={`relationship-node ${toneClass} ${
-                              point.isActiveBucket ? "relationship-node--active" : ""
-                            } ${point.isCurrentViewpoint ? "relationship-node--current" : "relationship-node--peer"}`}
-                            onClick={() => onNodeSelect({ viewpointId: lane.viewpointId, bucketIndex: point.bucketIndex })}
-                          >
-                            <span className="relationship-node__eyebrow">{`T${point.bucketIndex}`}</span>
-                            <span className="relationship-node__value">{point.heatIndex ?? "-"}</span>
-                            <span className="relationship-node__meta">{`${point.supportCount ?? 0} ${`\u652f\u6301`}`}</span>
-                          </button>
-                        ) : (
-                          <div className="relationship-node relationship-node--ghost">
-                            <span className="relationship-node__eyebrow">{`T${point.bucketIndex}`}</span>
-                            <span className="relationship-node__meta">{`\u7f3a\u5e2d`}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="relationship-stage__lane-tag-meta">
+                  <span>{lane.isCurrent ? `\u5f53\u524d\u4e3b\u89d2` : tone.label}</span>
+                  <span>{`Score ${lane.score}`}</span>
                 </div>
               </div>
             );
           })}
         </div>
-
-        {scope.externalAnchors.length ? (
-          <div className="relationship-stage__anchors">
-            {scope.externalAnchors.map((anchor) => {
-              const toneClass = getRelationToneClass(anchor.relationType);
-              const tone = getRelationTypeTone(anchor.relationType);
-              return (
-                <div key={anchor.id} className={`relationship-anchor ${toneClass}`}>
-                  <span className="relationship-anchor__kind">
-                    {anchor.kind === "storyline" ? `\u5916\u90e8\u4e3b\u7ebf` : `\u5916\u90e8\u89c2\u70b9`}
-                  </span>
-                  <strong>{anchor.label}</strong>
-                  <span className={`tone-pill tone-pill--${tone.tone}`}>{tone.label}</span>
-                  <span className="muted">
-                    {`${anchor.direction === "incoming" ? `\u5f71\u54cd\u6d41\u5165` : `\u5f71\u54cd\u6d41\u51fa`} / Weight ${anchor.weight.toFixed(2)}`}
-                  </span>
-                  <p className="relationship-anchor__summary">{anchor.summary}</p>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="relationship-panel__legend">
-        <span className="relationship-legend__item relationship-tone--current">{`\u4e3b\u89d2\u8f68\u8ff9`}</span>
-        <span className="relationship-legend__item relationship-tone--reinforces">{`\u589e\u5f3a`}</span>
-        <span className="relationship-legend__item relationship-tone--constrains">{`\u538b\u5236`}</span>
-        <span className="relationship-legend__item relationship-tone--depends">{`\u4f9d\u8d56`}</span>
-        <span className="relationship-legend__item relationship-tone--competes">{`\u7ade\u4e89`}</span>
-        <span className="relationship-legend__item relationship-tone--qualifies">{`\u9650\u5b9a`}</span>
       </div>
     </section>
   );

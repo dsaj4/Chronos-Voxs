@@ -23,7 +23,7 @@ function createFocus(overrides: Partial<WorkspaceFocusState>): WorkspaceFocusSta
 }
 
 describe("EvidencePanel", () => {
-  it("renders an interactive evidence stage with buckets, clusters, and particles", () => {
+  it("renders a particle-field evidence stage with buckets, canvas, and cluster strip", () => {
     const bundle = createPublishedBundleFixture();
     const scope = getScopedEvidenceState(bundle, createFocus({}));
 
@@ -37,9 +37,46 @@ describe("EvidencePanel", () => {
     );
 
     expect(markup).toContain("evidence-stage");
-    expect(markup).toContain("evidence-stage__constellation");
-    expect(markup).toContain("evidence-cluster");
-    expect(markup).toContain("evidence-particle");
-    expect(markup).toContain("evidence-feed__item");
+    expect(markup).toContain("evidence-stage__field");
+    expect(markup).toContain("<canvas");
+    expect(markup).toContain("evidence-stage__cluster-strip");
+    expect(markup).toContain("evidence-stage__cluster-chip");
+  });
+
+  it("falls back to the nearest evidence bucket when the requested slice is empty", () => {
+    const bundle = createPublishedBundleFixture();
+    const scope = getScopedEvidenceState(
+      bundle,
+      createFocus({ activeBucketIndex: 0, activeViewpointId: "vp_003" })
+    );
+
+    expect(scope.resolvedBucketIndex).toBe(1);
+    expect(scope.fallbackMessage).toContain("\u6700\u8fd1\u6709\u8bc1\u636e\u7684\u65f6\u95f4\u6876");
+  });
+
+  it("renders a single-cluster single-particle slice without collapsing the stage", () => {
+    const bundle = createPublishedBundleFixture();
+    const scope = getScopedEvidenceState(
+      bundle,
+      createFocus({
+        activeStorylineIds: ["st_002"],
+        activeViewpointId: "vp_002",
+        activeBucketIndex: 2
+      })
+    );
+
+    const markup = renderToStaticMarkup(
+      <EvidencePanel
+        bundle={bundle}
+        scope={scope}
+        onBucketSelect={() => undefined}
+        onEvidenceFocus={() => undefined}
+      />
+    );
+
+    expect(scope.evidenceClusters).toHaveLength(1);
+    expect(scope.particles).toHaveLength(1);
+    expect(markup).toContain("evidence-stage__field");
+    expect(markup).toContain("evidence-stage__cluster-chip");
   });
 });
