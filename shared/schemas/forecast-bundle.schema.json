@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chronos-vox.local/schemas/forecast-bundle.schema.json",
+  "title": "ForecastBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "stream", "neural_map", "particle_field", "reasoning"],
+  "properties": {
+    "meta": { "$ref": "#/$defs/bundleMeta" },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storylines", "storyline_snapshots", "forecast_series"],
+      "properties": {
+        "storylines": { "type": "array", "items": { "$ref": "#/$defs/storyline" } },
+        "storyline_snapshots": { "type": "array", "items": { "$ref": "#/$defs/storylineSnapshot" } },
+        "forecast_series": { "type": "array", "items": { "$ref": "#/$defs/storylineForecastSeries" } }
+      }
+    },
+    "neural_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["viewpoints", "viewpoint_snapshots", "viewpoint_relations", "storyline_relations"],
+      "properties": {
+        "viewpoints": { "type": "array", "items": { "$ref": "#/$defs/viewpoint" } },
+        "viewpoint_snapshots": { "type": "array", "items": { "$ref": "#/$defs/viewpointSnapshot" } },
+        "viewpoint_relations": { "type": "array", "items": { "$ref": "#/$defs/viewpointRelation" } },
+        "storyline_relations": { "type": "array", "items": { "$ref": "#/$defs/storylineRelation" } }
+      }
+    },
+    "particle_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["particles", "evidence_clusters"],
+      "properties": {
+        "particles": { "type": "array", "items": { "$ref": "#/$defs/evidenceParticle" } },
+        "evidence_clusters": { "type": "array", "items": { "$ref": "#/$defs/evidenceCluster" } }
+      }
+    },
+    "reasoning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["heat_index_formula", "model_reasoning", "traceability"],
+      "properties": {
+        "heat_index_formula": { "$ref": "#/$defs/heatIndexFormula" },
+        "model_reasoning": { "type": "array", "items": { "$ref": "#/$defs/modelReasoning" } },
+        "traceability": { "type": "array", "items": { "$ref": "#/$defs/traceabilityRecord" } }
+      }
+    }
+  },
+  "$defs": {
+    "metadataObject": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "modelDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "category", "description"],
+      "properties": {
+        "id": { "type": "string", "enum": ["bass_diffusion", "gompertz"] },
+        "label": { "type": "string" },
+        "category": { "type": "string", "enum": ["diffusion", "saturation"] },
+        "description": { "type": "string" }
+      }
+    },
+    "bundleMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "case_title", "topic_tag", "contract_version", "fixture_id", "generated_at", "bucket_granularity", "analysis_window_start", "analysis_window_end", "source_platforms", "default_model_id", "available_models"],
+      "properties": {
+        "case_id": { "type": "string" },
+        "case_title": { "type": "string" },
+        "topic_tag": { "type": "string" },
+        "contract_version": { "type": "string", "const": "2026-03-24.v1" },
+        "fixture_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "bucket_granularity": { "type": "string", "enum": ["hour", "day", "week"] },
+        "analysis_window_start": { "type": "string" },
+        "analysis_window_end": { "type": "string" },
+        "source_platforms": { "type": "array", "items": { "type": "string" } },
+        "default_model_id": { "type": "string", "enum": ["bass_diffusion", "gompertz"] },
+        "available_models": { "type": "array", "items": { "$ref": "#/$defs/modelDefinition" } }
+      }
+    },
+    "viewpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["viewpoint_id", "topic_tag", "viewpoint_label", "title", "claim_statement", "summary", "summary_source", "summary_grounding_score", "claim_ids", "comment_ids", "representative_claim_ids", "evidence_comment_ids", "support_count", "unique_comment_count", "keywords", "metadata"],
+      "properties": {
+        "viewpoint_id": { "type": "string" },
+        "topic_tag": { "type": "string" },
+        "viewpoint_label": { "type": "string" },
+        "title": { "type": "string" },
+        "claim_statement": { "type": "string" },
+        "summary": { "type": "string" },
+        "summary_source": { "type": "string", "const": "llm" },
+        "summary_grounding_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "claim_ids": { "type": "array", "items": { "type": "string" } },
+        "comment_ids": { "type": "array", "items": { "type": "string" } },
+        "representative_claim_ids": { "type": "array", "items": { "type": "string" } },
+        "evidence_comment_ids": { "type": "array", "items": { "type": "string" } },
+        "support_count": { "type": "integer", "minimum": 0 },
+        "unique_comment_count": { "type": "integer", "minimum": 0 },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "viewpointSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_id", "viewpoint_id", "bucket_index", "bucket_start", "bucket_granularity", "support_count", "unique_comment_count", "heat_index", "representative_claim_ids", "metadata"],
+      "properties": {
+        "snapshot_id": { "type": "string" },
+        "viewpoint_id": { "type": "string" },
+        "bucket_index": { "type": "integer", "minimum": 0 },
+        "bucket_start": { "type": "string" },
+        "bucket_granularity": { "type": "string", "enum": ["hour", "day", "week"] },
+        "support_count": { "type": "integer", "minimum": 0 },
+        "unique_comment_count": { "type": "integer", "minimum": 0 },
+        "heat_index": { "type": "number", "minimum": 0, "maximum": 100 },
+        "representative_claim_ids": { "type": "array", "items": { "type": "string" } },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "viewpointRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "source_viewpoint_id", "target_viewpoint_id", "relation_type", "weight", "evidence_claim_ids", "rationale", "metadata"],
+      "properties": {
+        "relation_id": { "type": "string" },
+        "source_viewpoint_id": { "type": "string" },
+        "target_viewpoint_id": { "type": "string" },
+        "relation_type": { "type": "string" },
+        "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence_claim_ids": { "type": "array", "items": { "type": "string" } },
+        "rationale": { "type": "string" },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "storyline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storyline_id", "topic_tag", "storyline_label", "title", "summary", "summary_source", "logic_status", "evidence_posture", "support_count", "viewpoint_count", "comment_count", "keywords", "display_rank", "display_tier", "metadata"],
+      "properties": {
+        "storyline_id": { "type": "string" },
+        "topic_tag": { "type": "string" },
+        "storyline_label": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "summary_source": { "type": "string", "const": "llm" },
+        "logic_status": { "type": "string" },
+        "evidence_posture": { "type": "string" },
+        "support_count": { "type": "integer", "minimum": 0 },
+        "viewpoint_count": { "type": "integer", "minimum": 0 },
+        "comment_count": { "type": "integer", "minimum": 0 },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "display_rank": { "type": "integer", "minimum": 0 },
+        "display_tier": { "type": "string" },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "storylineSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_id", "storyline_id", "bucket_index", "bucket_start", "bucket_granularity", "support_count", "comment_count", "viewpoint_ids", "storyline_heat_index", "top_viewpoint_ids", "metadata"],
+      "properties": {
+        "snapshot_id": { "type": "string" },
+        "storyline_id": { "type": "string" },
+        "bucket_index": { "type": "integer", "minimum": 0 },
+        "bucket_start": { "type": "string" },
+        "bucket_granularity": { "type": "string", "enum": ["hour", "day", "week"] },
+        "support_count": { "type": "integer", "minimum": 0 },
+        "comment_count": { "type": "integer", "minimum": 0 },
+        "viewpoint_ids": { "type": "array", "items": { "type": "string" } },
+        "storyline_heat_index": { "type": "number", "minimum": 0, "maximum": 100 },
+        "top_viewpoint_ids": { "type": "array", "items": { "type": "string" } },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "storylineRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "source_storyline_id", "target_storyline_id", "relation_type", "weight", "evidence_viewpoint_ids", "rationale", "metadata"],
+      "properties": {
+        "relation_id": { "type": "string" },
+        "source_storyline_id": { "type": "string" },
+        "target_storyline_id": { "type": "string" },
+        "relation_type": { "type": "string" },
+        "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence_viewpoint_ids": { "type": "array", "items": { "type": "string" } },
+        "rationale": { "type": "string" },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "forecastPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket_index", "bucket_start", "bucket_granularity", "value", "confidence_low", "confidence_high", "confidence_score", "is_forecast"],
+      "properties": {
+        "bucket_index": { "type": "integer", "minimum": 0 },
+        "bucket_start": { "type": "string" },
+        "bucket_granularity": { "type": "string", "enum": ["hour", "day", "week"] },
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "confidence_low": { "type": "number", "minimum": 0, "maximum": 100 },
+        "confidence_high": { "type": "number", "minimum": 0, "maximum": 100 },
+        "confidence_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "is_forecast": { "type": "boolean" }
+      }
+    },
+    "storylineForecastSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storyline_id", "model_id", "model_label", "target_metric", "historical_points", "forecast_points", "explanation", "metadata"],
+      "properties": {
+        "storyline_id": { "type": "string" },
+        "model_id": { "type": "string", "enum": ["bass_diffusion", "gompertz"] },
+        "model_label": { "type": "string" },
+        "target_metric": { "type": "string", "const": "storylineHeatIndex" },
+        "historical_points": { "type": "array", "items": { "$ref": "#/$defs/forecastPoint" } },
+        "forecast_points": { "type": "array", "items": { "$ref": "#/$defs/forecastPoint" } },
+        "explanation": { "type": "string" },
+        "metadata": { "$ref": "#/$defs/metadataObject" }
+      }
+    },
+    "evidenceParticle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["particle_id", "storyline_id", "viewpoint_id", "claim_id", "comment_id", "bucket_index", "bucket_start", "signal_strength", "excerpt"],
+      "properties": {
+        "particle_id": { "type": "string" },
+        "storyline_id": { "type": "string" },
+        "viewpoint_id": { "type": "string" },
+        "claim_id": { "type": "string" },
+        "comment_id": { "type": "string" },
+        "bucket_index": { "type": "integer", "minimum": 0 },
+        "bucket_start": { "type": "string" },
+        "signal_strength": { "type": "number", "minimum": 0, "maximum": 1 },
+        "excerpt": { "type": "string" }
+      }
+    },
+    "evidenceCluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cluster_id", "storyline_id", "viewpoint_id", "bucket_index", "bucket_start", "label", "comment_ids", "representative_comment_id"],
+      "properties": {
+        "cluster_id": { "type": "string" },
+        "storyline_id": { "type": "string" },
+        "viewpoint_id": { "type": "string" },
+        "bucket_index": { "type": "integer", "minimum": 0 },
+        "bucket_start": { "type": "string" },
+        "label": { "type": "string" },
+        "comment_ids": { "type": "array", "items": { "type": "string" } },
+        "representative_comment_id": { "type": "string" }
+      }
+    },
+    "heatIndexFormula": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "target_metric", "weights", "description"],
+      "properties": {
+        "version": { "type": "string" },
+        "target_metric": { "type": "string", "const": "storylineHeatIndex" },
+        "weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["volume_component", "support_component", "source_quality_component", "recency_component"],
+          "properties": {
+            "volume_component": { "type": "number" },
+            "support_component": { "type": "number" },
+            "source_quality_component": { "type": "number" },
+            "recency_component": { "type": "number" }
+          }
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "modelReasoning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storyline_id", "model_id", "assumptions", "explanation", "confidence_note", "comparison_summary"],
+      "properties": {
+        "storyline_id": { "type": "string" },
+        "model_id": { "type": "string", "enum": ["bass_diffusion", "gompertz"] },
+        "assumptions": { "type": "array", "items": { "type": "string" } },
+        "explanation": { "type": "string" },
+        "confidence_note": { "type": "string" },
+        "comparison_summary": { "type": "string" }
+      }
+    },
+    "traceabilityRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storyline_id", "viewpoint_ids", "claim_ids", "comment_ids"],
+      "properties": {
+        "storyline_id": { "type": "string" },
+        "viewpoint_ids": { "type": "array", "items": { "type": "string" } },
+        "claim_ids": { "type": "array", "items": { "type": "string" } },
+        "comment_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

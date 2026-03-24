@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chronos-vox.local/schemas/group-summary-output.schema.json",
+  "title": "GroupSummaryOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["label", "title", "summary", "explanation", "grounding_score", "keywords"],
+  "properties": {
+    "label": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "explanation": { "type": "string", "minLength": 1 },
+    "grounding_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
