@@ -127,7 +127,7 @@ export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipP
           <h2>{`\u65f6\u95f4-\u89c2\u70b9\u6f14\u5316\u56fe`}</h2>
           <p className="muted">
             {displayViewpoint
-              ? `${displayViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u4e3b\u89c2\u70b9\u3002\u8282\u70b9\u70b9\u51fb\u4f1a\u53ea\u5728\u5de5\u4f5c\u53f0\u5185\u90e8\u5207\u6876\u548c\u5207\u70b9\u3002`}`
+              ? `${displayViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u4e3b\u89c2\u70b9\u3002`}`
               : `\u5f53\u524d\u89c2\u70b9\u4e0d\u53ef\u7528\u3002`}
           </p>
         </div>
@@ -136,19 +136,10 @@ export function RelationshipPanel({ bundle, scope, onNodeSelect }: RelationshipP
             <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
           ) : null}
           <span className="tone-pill tone-pill--focus">{`${scope.lanes.length} ${`\u6761\u6cf3\u9053`}`}</span>
-          <span className="tone-pill tone-pill--muted">{`${scope.externalAnchors.length} ${`\u4e2a\u5916\u90e8\u951a\u70b9`}`}</span>
         </div>
       </div>
 
       {scope.fallbackMessage ? <p className="detail-panel__note">{scope.fallbackMessage}</p> : null}
-
-      <div className="panel__meta">
-        <span className="pill">{storyline.title}</span>
-        {displayViewpoint ? <span className="pill">{`${`\u5f53\u524d\u89c2\u70b9`} ${displayViewpoint.title}`}</span> : null}
-        {scope.resolvedBucketStart ? (
-          <span className="pill">{formatBucketStart(scope.resolvedBucketStart, bundle.meta.bucket_granularity)}</span>
-        ) : null}
-      </div>
 
       <div className="relationship-stage">
         <div className="relationship-stage__legend">

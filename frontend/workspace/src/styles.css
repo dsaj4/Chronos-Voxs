@@ -651,21 +651,34 @@ button {
 
 .storyline-stream {
   display: grid;
-  gap: 18px;
-  min-height: 720px;
+  gap: 16px;
+  min-height: 0;
 }
 
 .storyline-stream__header {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
   align-items: flex-start;
+}
+
+.storyline-switcher__copy {
+  min-width: 0;
+}
+
+.storyline-switcher__title {
+  max-width: 34rem;
+  line-height: 1.24;
+}
+
+.storyline-switcher__description {
+  margin: 4px 0 0;
 }
 
 .storyline-stream__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -673,7 +686,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: rgba(9, 15, 22, 0.56);
@@ -778,7 +791,7 @@ button {
 
 .storyline-stream__stage {
   display: grid;
-  gap: 14px;
+  gap: 0;
   min-width: 0;
 }
 
@@ -807,13 +820,17 @@ button {
 }
 
 .storyline-stream__chart {
-  min-height: 420px;
+  min-height: 500px;
   border-radius: 20px;
   border: 1px solid rgba(86, 204, 242, 0.08);
   background:
     radial-gradient(circle at top, rgba(86, 204, 242, 0.06), transparent 42%),
     rgba(10, 16, 24, 0.88);
-  padding: 10px 6px 4px;
+  padding: 12px 8px 6px;
+}
+
+.storyline-stream__chart--primary {
+  min-height: 560px;
 }
 
 .stream-tooltip {

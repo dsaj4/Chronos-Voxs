@@ -504,7 +504,7 @@ export function EvidencePanel({ bundle, scope, onBucketSelect, onEvidenceFocus }
           <h2>{`\u65f6\u95f4-\u8bc1\u636e\u7c92\u5b50\u573a`}</h2>
           <p className="muted">
             {resolvedViewpoint
-              ? `${resolvedViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u89c6\u89d2\u951a\u70b9\u3002\u53ef\u5728\u6b64\u76f4\u63a5\u8ddf\u8fdb\u5230\u5bf9\u5e94\u8bc4\u8bba\u7c92\u5b50\u3002`}`
+              ? `${resolvedViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u89c6\u89d2\u951a\u70b9\u3002`}`
               : `\u5f53\u524d\u5207\u7247\u6309\u4e3b\u7ebf\u8bc1\u636e\u805a\u5408\u663e\u793a\u3002`}
           </p>
         </div>
@@ -512,20 +512,11 @@ export function EvidencePanel({ bundle, scope, onBucketSelect, onEvidenceFocus }
           {scope.resolvedBucketIndex !== null ? (
             <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
           ) : null}
-          <span className="tone-pill tone-pill--focus">{`${clusters.length} ${`\u4e2a\u7c07`}`}</span>
-          <span className="tone-pill tone-pill--forecast">{`${particles.length} ${`\u4e2a\u7c92\u5b50`}`}</span>
+          <span className="tone-pill tone-pill--focus">{`${clusters.length} ${`\u7c07`} / ${particles.length} ${`\u7c92\u5b50`}`}</span>
         </div>
       </div>
 
       {scope.fallbackMessage ? <p className="detail-panel__note">{scope.fallbackMessage}</p> : null}
-
-      <div className="panel__meta">
-        <span className="pill">{storyline.title}</span>
-        {resolvedViewpoint ? <span className="pill">{`${`\u89c2\u70b9`} ${resolvedViewpoint.title}`}</span> : null}
-        {scope.resolvedBucketStart ? (
-          <span className="pill">{formatBucketStart(scope.resolvedBucketStart, bundle.meta.bucket_granularity)}</span>
-        ) : null}
-      </div>
 
       <div className="evidence-stage">
         <div className="evidence-stage__buckets">
