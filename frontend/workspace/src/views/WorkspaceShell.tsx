@@ -178,50 +178,57 @@ export function WorkspaceShell({
 
       <main className="workspace-grid">
         <section className="left-column">
-          <div className="panel">
-            <div className="panel__heading">
-              <div>
-                <p className="eyebrow">{`\u4e3b\u7ebf\u5217\u8868`}</p>
-                <h3>{`\u5df2\u53d1\u5e03\u4e3b\u7ebf`}</h3>
-              </div>
-              <span className="muted">
-                {`\u5207\u6362\u4e3b\u7ebf\u4f1a\u66f4\u65b0\u5171\u4eab\u7126\u70b9\uff0c\u5173\u7cfb\u4e0e\u8bc1\u636e\u89c6\u56fe\u8ddf\u968f\u540c\u6b65\u3002`}
-              </span>
-            </div>
-            <StorylineList
-              storylines={bundle.stream.storylines}
+          {effectiveFocus.activePrimaryView === "storylines" ? (
+            <StorylinePanel
+              bundle={bundle}
               activeStorylineId={activeStorylineId}
-              onSelect={(storylineId) => {
+              onStorylineSelect={(storylineId) => {
                 setLocalOverride(null);
                 onStorylineSelect(storylineId);
               }}
             />
-          </div>
-
-          {effectiveFocus.activePrimaryView === "storylines" ? (
-            <StorylinePanel
-              bundle={bundle}
-              storyline={selectedStoryline}
-              selectedModelId={effectiveFocus.selectedModelId}
-              onModelChange={onModelChange}
-            />
-          ) : effectiveFocus.activePrimaryView === "relationships" ? (
-            <RelationshipPanel
-              bundle={bundle}
-              scope={relationshipScope}
-              onNodeSelect={({ viewpointId, bucketIndex }) => {
-                const viewpointTitle =
-                  bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === viewpointId)?.title ?? viewpointId;
-                setLocalOverride({
-                  storylineId: relationshipScope.storylineId,
-                  viewpointId,
-                  bucketIndex,
-                  impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`
-                });
-              }}
-            />
           ) : (
-            <EvidencePanel bundle={bundle} scope={evidenceScope} />
+            <>
+              <div className="panel">
+                <div className="panel__heading">
+                  <div>
+                    <p className="eyebrow">{`\u4e3b\u7ebf\u5217\u8868`}</p>
+                    <h3>{`\u5df2\u53d1\u5e03\u4e3b\u7ebf`}</h3>
+                  </div>
+                  <span className="muted">
+                    {`\u5207\u6362\u4e3b\u7ebf\u4f1a\u66f4\u65b0\u5171\u4eab\u7126\u70b9\uff0c\u5173\u7cfb\u4e0e\u8bc1\u636e\u89c6\u56fe\u8ddf\u968f\u540c\u6b65\u3002`}
+                  </span>
+                </div>
+                <StorylineList
+                  storylines={bundle.stream.storylines}
+                  activeStorylineId={activeStorylineId}
+                  onSelect={(storylineId) => {
+                    setLocalOverride(null);
+                    onStorylineSelect(storylineId);
+                  }}
+                />
+              </div>
+
+              {effectiveFocus.activePrimaryView === "relationships" ? (
+                <RelationshipPanel
+                  bundle={bundle}
+                  scope={relationshipScope}
+                  onNodeSelect={({ viewpointId, bucketIndex }) => {
+                    const viewpointTitle =
+                      bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === viewpointId)?.title ??
+                      viewpointId;
+                    setLocalOverride({
+                      storylineId: relationshipScope.storylineId,
+                      viewpointId,
+                      bucketIndex,
+                      impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`
+                    });
+                  }}
+                />
+              ) : (
+                <EvidencePanel bundle={bundle} scope={evidenceScope} />
+              )}
+            </>
           )}
         </section>
 

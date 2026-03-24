@@ -6,6 +6,19 @@ export interface ToneLabel {
   tone: "focus" | "reinforce" | "forecast" | "conflict" | "muted";
 }
 
+export interface StreamColor {
+  fill: string;
+  stroke: string;
+  label: string;
+}
+
+export const STREAM_COLORS: StreamColor[] = [
+  { fill: "#C0541A", stroke: "#E8703A", label: "#E8703A" },
+  { fill: "#1A7A8A", stroke: "#56CCF2", label: "#56CCF2" },
+  { fill: "#5B3A8A", stroke: "#9B6FD4", label: "#9B6FD4" },
+  { fill: "#1A5C3A", stroke: "#6FCF97", label: "#6FCF97" }
+];
+
 export function getPrimaryViewLabel(view: PrimaryViewKey): string {
   switch (view) {
     case "storylines":
