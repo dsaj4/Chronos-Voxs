@@ -1,16 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { StorylineSwitchHeader } from "../components/StorylineSwitchHeader";
 import { formatBucketStart } from "../forecast/seriesModels";
 import type { PublishedBundle } from "../loader/publishedTypes";
+import { STREAM_COLORS } from "../presentation/workspaceChrome";
 import type { ScopedEvidenceState } from "../state/focusSelectors";
+
+type PublishedStoryline = PublishedBundle["stream"]["storylines"][number];
+type PublishedEvidenceParticle = PublishedBundle["particle_field"]["particles"][number];
 
 interface EvidencePanelProps {
   bundle: PublishedBundle;
   scope: ScopedEvidenceState;
   onBucketSelect: (bucketIndex: number) => void;
-  onEvidenceFocus: (input: { viewpointId: string | null; bucketIndex: number; impact: string }) => void;
+  onEvidenceFocus: (input: {
+    storylineId?: string | null;
+    viewpointId: string | null;
+    bucketIndex: number;
+    impact: string;
+  }) => void;
   storylines?: PublishedBundle["stream"]["storylines"];
   activeStorylineId?: string | null;
+  activeStorylineIds?: string[];
   onStorylineSelect?: (storylineId: string) => void;
 }
 
@@ -19,11 +29,14 @@ interface EvidenceBucketSummary {
   bucketStart: string;
   particleCount: number;
   clusterCount: number;
+  storylineCount: number;
   isActiveBucket: boolean;
 }
 
 interface EvidenceClusterVisual {
   id: string;
+  storylineId: string;
+  storylineTitle: string;
   label: string;
   viewpointId: string | null;
   viewpointTitle: string;
@@ -33,12 +46,15 @@ interface EvidenceClusterVisual {
   particleCount: number;
   avgSignal: number;
   accentColor: string;
-  isActiveViewpoint: boolean;
+  fillColor: string;
+  isAnchorViewpoint: boolean;
 }
 
 interface EvidenceParticleVisual {
   particleId: string;
   clusterId: string;
+  storylineId: string;
+  storylineTitle: string;
   viewpointId: string;
   viewpointTitle: string;
   bucketIndex: number;
@@ -46,7 +62,9 @@ interface EvidenceParticleVisual {
   excerpt: string;
   signalStrength: number;
   size: number;
-  isActiveViewpoint: boolean;
+  accentColor: string;
+  fillColor: string;
+  isHighlighted: boolean;
 }
 
 interface ClusterCanvasLayout {
@@ -70,50 +88,200 @@ interface ParticleCanvasLayout {
   particle: EvidenceParticleVisual;
 }
 
-const EVIDENCE_COLORS = ["#56CCF2", "#F2C94C", "#6FCF97", "#CE93D8"];
+function sortStorylines(storylines: PublishedStoryline[]): PublishedStoryline[] {
+  return [...storylines].sort((left, right) => left.display_rank - right.display_rank);
+}
+
+function resolveSelectedStorylineIds({
+  availableStorylines,
+  activeStorylineIds,
+  activeStorylineId,
+  scopeStorylineId
+}: {
+  availableStorylines: PublishedStoryline[];
+  activeStorylineIds?: string[];
+  activeStorylineId?: string | null;
+  scopeStorylineId: string | null;
+}): string[] {
+  const availableIdSet = new Set(availableStorylines.map((storyline) => storyline.storyline_id));
+  const requestedIds =
+    activeStorylineIds && activeStorylineIds.length > 0
+      ? activeStorylineIds
+      : activeStorylineId
+        ? [activeStorylineId]
+        : scopeStorylineId
+          ? [scopeStorylineId]
+          : [];
+
+  const selectedIds = [...new Set(requestedIds)].filter((storylineId) => availableIdSet.has(storylineId));
+  if (selectedIds.length > 0) {
+    return sortStorylines(availableStorylines)
+      .map((storyline) => storyline.storyline_id)
+      .filter((storylineId) => selectedIds.includes(storylineId));
+  }
+
+  return availableStorylines[0] ? [availableStorylines[0].storyline_id] : [];
+}
+
+function getStorylineColorMap(storylines: PublishedStoryline[]) {
+  return new Map(
+    sortStorylines(storylines).map((storyline, index) => [
+      storyline.storyline_id,
+      STREAM_COLORS[index % STREAM_COLORS.length]
+    ])
+  );
+}
+
+function getBucketResolution(
+  bundle: PublishedBundle,
+  storylineIds: string[],
+  requestedBucketIndex: number | null
+): { resolvedBucketIndex: number | null; fallbackMessage: string | null } {
+  const selectedStorylineIds = new Set(storylineIds);
+  const bucketIndices = [
+    ...new Set(
+      [
+        ...bundle.particle_field.particles
+          .filter((particle) => selectedStorylineIds.has(particle.storyline_id))
+          .map((particle) => particle.bucket_index),
+        ...bundle.particle_field.evidence_clusters
+          .filter((cluster) => selectedStorylineIds.has(cluster.storyline_id))
+          .map((cluster) => cluster.bucket_index)
+      ]
+    )
+  ].sort((left, right) => left - right);
+
+  if (bucketIndices.length === 0) {
+    return { resolvedBucketIndex: null, fallbackMessage: null };
+  }
+
+  if (requestedBucketIndex === null) {
+    return { resolvedBucketIndex: bucketIndices.at(-1) ?? null, fallbackMessage: null };
+  }
+
+  if (bucketIndices.includes(requestedBucketIndex)) {
+    return { resolvedBucketIndex: requestedBucketIndex, fallbackMessage: null };
+  }
+
+  const resolvedBucketIndex =
+    [...bucketIndices].sort((left, right) => {
+      const leftDistance = Math.abs(left - requestedBucketIndex);
+      const rightDistance = Math.abs(right - requestedBucketIndex);
+      if (leftDistance !== rightDistance) {
+        return leftDistance - rightDistance;
+      }
+      return right - left;
+    })[0] ?? null;
+
+  return {
+    resolvedBucketIndex,
+    fallbackMessage:
+      resolvedBucketIndex === null
+        ? null
+        : `当前请求桶 T${requestedBucketIndex} 没有证据，已回退到最近可见桶 T${resolvedBucketIndex}。`
+  };
+}
 
 function getBucketSummaries(
   bundle: PublishedBundle,
-  storylineId: string,
+  storylineIds: string[],
   resolvedBucketIndex: number | null
 ): EvidenceBucketSummary[] {
-  const storylineSnapshots = bundle.stream.storyline_snapshots
-    .filter((snapshot) => snapshot.storyline_id === storylineId)
-    .sort((left, right) => left.bucket_index - right.bucket_index);
-  const storylineParticles = bundle.particle_field.particles.filter((particle) => particle.storyline_id === storylineId);
-  const storylineClusters = bundle.particle_field.evidence_clusters.filter((cluster) => cluster.storyline_id === storylineId);
-  const bucketStartByIndex = new Map<number, string>();
+  const selectedStorylineIds = new Set(storylineIds);
+  const summaryByBucket = new Map<
+    number,
+    { bucketStart: string; particleCount: number; clusterCount: number; storylineIds: Set<string> }
+  >();
 
-  for (const snapshot of storylineSnapshots) {
-    bucketStartByIndex.set(snapshot.bucket_index, snapshot.bucket_start);
-  }
-  for (const particle of storylineParticles) {
-    bucketStartByIndex.set(particle.bucket_index, particle.bucket_start);
-  }
-  for (const cluster of storylineClusters) {
-    bucketStartByIndex.set(cluster.bucket_index, cluster.bucket_start);
+  for (const particle of bundle.particle_field.particles) {
+    if (!selectedStorylineIds.has(particle.storyline_id)) {
+      continue;
+    }
+
+    const current =
+      summaryByBucket.get(particle.bucket_index) ??
+      {
+        bucketStart: particle.bucket_start,
+        particleCount: 0,
+        clusterCount: 0,
+        storylineIds: new Set<string>()
+      };
+    current.bucketStart = particle.bucket_start;
+    current.particleCount += 1;
+    current.storylineIds.add(particle.storyline_id);
+    summaryByBucket.set(particle.bucket_index, current);
   }
 
-  return [...bucketStartByIndex.entries()]
+  for (const cluster of bundle.particle_field.evidence_clusters) {
+    if (!selectedStorylineIds.has(cluster.storyline_id)) {
+      continue;
+    }
+
+    const current =
+      summaryByBucket.get(cluster.bucket_index) ??
+      {
+        bucketStart: cluster.bucket_start,
+        particleCount: 0,
+        clusterCount: 0,
+        storylineIds: new Set<string>()
+      };
+    current.bucketStart = cluster.bucket_start;
+    current.clusterCount += 1;
+    current.storylineIds.add(cluster.storyline_id);
+    summaryByBucket.set(cluster.bucket_index, current);
+  }
+
+  return [...summaryByBucket.entries()]
     .sort((left, right) => left[0] - right[0])
-    .map(([bucketIndex, bucketStart]) => ({
+    .map(([bucketIndex, summary]) => ({
       bucketIndex,
-      bucketStart,
-      particleCount: storylineParticles.filter((particle) => particle.bucket_index === bucketIndex).length,
-      clusterCount: storylineClusters.filter((cluster) => cluster.bucket_index === bucketIndex).length,
+      bucketStart: summary.bucketStart,
+      particleCount: summary.particleCount,
+      clusterCount: summary.clusterCount,
+      storylineCount: summary.storylineIds.size,
       isActiveBucket: bucketIndex === resolvedBucketIndex
     }));
 }
 
-function getClusterVisuals(bundle: PublishedBundle, scope: ScopedEvidenceState): EvidenceClusterVisual[] {
-  const viewpointById = new Map(
-    bundle.neural_map.viewpoints.map((viewpoint) => [viewpoint.viewpoint_id, viewpoint])
+function getClusterVisuals(
+  bundle: PublishedBundle,
+  availableStorylines: PublishedStoryline[],
+  storylineIds: string[],
+  resolvedBucketIndex: number | null,
+  activeViewpointId: string | null,
+  anchorStorylineId: string | null
+): { clusters: EvidenceClusterVisual[]; particles: PublishedEvidenceParticle[] } {
+  if (resolvedBucketIndex === null) {
+    return { clusters: [], particles: [] };
+  }
+
+  const selectedStorylineIds = new Set(storylineIds);
+  const storylineById = new Map(availableStorylines.map((storyline) => [storyline.storyline_id, storyline]));
+  const viewpointById = new Map(bundle.neural_map.viewpoints.map((viewpoint) => [viewpoint.viewpoint_id, viewpoint]));
+  const storylineColorMap = getStorylineColorMap(availableStorylines);
+  const bucketParticles = bundle.particle_field.particles.filter(
+    (particle) => selectedStorylineIds.has(particle.storyline_id) && particle.bucket_index === resolvedBucketIndex
+  );
+  const bucketClusters = bundle.particle_field.evidence_clusters.filter(
+    (cluster) => selectedStorylineIds.has(cluster.storyline_id) && cluster.bucket_index === resolvedBucketIndex
   );
 
-  const rawClusters =
-    scope.evidenceClusters.length > 0
-      ? scope.evidenceClusters.map((cluster) => ({
+  const rawClusters: Array<{
+    id: string;
+    storylineId: string;
+    storylineTitle: string;
+    label: string;
+    viewpointId: string | null;
+    viewpointTitle: string;
+    bucketIndex: number;
+    bucketStart: string;
+    commentCount: number;
+  }> =
+    bucketClusters.length > 0
+      ? bucketClusters.map((cluster) => ({
           id: cluster.cluster_id,
+          storylineId: cluster.storyline_id,
+          storylineTitle: storylineById.get(cluster.storyline_id)?.title ?? cluster.storyline_id,
           label: cluster.label,
           viewpointId: cluster.viewpoint_id,
           viewpointTitle: viewpointById.get(cluster.viewpoint_id)?.title ?? cluster.viewpoint_id,
@@ -121,65 +289,118 @@ function getClusterVisuals(bundle: PublishedBundle, scope: ScopedEvidenceState):
           bucketStart: cluster.bucket_start,
           commentCount: cluster.comment_ids.length
         }))
-      : [...new Set(scope.particles.map((particle) => particle.viewpoint_id))].map((viewpointId, index) => {
-          const particles = scope.particles.filter((particle) => particle.viewpoint_id === viewpointId);
-          return {
-            id: `derived-${viewpointId}-${index}`,
-            label: viewpointById.get(viewpointId)?.title ?? viewpointId,
-            viewpointId,
-            viewpointTitle: viewpointById.get(viewpointId)?.title ?? viewpointId,
-            bucketIndex: particles[0]?.bucket_index ?? scope.resolvedBucketIndex ?? 0,
-            bucketStart: particles[0]?.bucket_start ?? scope.resolvedBucketStart ?? "",
-            commentCount: particles.length
-          };
-        });
+      : [...new Set(bucketParticles.map((particle) => `${particle.storyline_id}::${particle.viewpoint_id}`))].map(
+          (key, index) => {
+            const [storylineId, viewpointId] = key.split("::");
+            const groupedParticles = bucketParticles.filter(
+              (particle) =>
+                particle.storyline_id === storylineId &&
+                particle.viewpoint_id === viewpointId
+            );
 
-  return rawClusters.map((cluster, index) => {
-    const clusterParticles = scope.particles.filter((particle) => particle.viewpoint_id === cluster.viewpointId);
+            return {
+              id: `derived-${storylineId}-${viewpointId}-${resolvedBucketIndex}-${index}`,
+              storylineId,
+              storylineTitle: storylineById.get(storylineId)?.title ?? storylineId,
+              label: viewpointById.get(viewpointId)?.title ?? viewpointId,
+              viewpointId,
+              viewpointTitle: viewpointById.get(viewpointId)?.title ?? viewpointId,
+              bucketIndex: groupedParticles[0]?.bucket_index ?? resolvedBucketIndex,
+              bucketStart: groupedParticles[0]?.bucket_start ?? "",
+              commentCount: groupedParticles.length
+            };
+          }
+        );
 
-    return {
-      ...cluster,
-      particleCount: clusterParticles.length,
-      avgSignal:
-        clusterParticles.length > 0
-          ? clusterParticles.reduce((sum, particle) => sum + particle.signal_strength, 0) / clusterParticles.length
-          : 0,
-      accentColor: EVIDENCE_COLORS[index % EVIDENCE_COLORS.length],
-      isActiveViewpoint: cluster.viewpointId === scope.resolvedViewpointId
-    };
-  });
+  const clusters = rawClusters
+    .map((cluster) => {
+      const clusterParticles = bucketParticles.filter(
+        (particle) =>
+          particle.storyline_id === cluster.storylineId &&
+          particle.viewpoint_id === cluster.viewpointId
+      );
+      const color = storylineColorMap.get(cluster.storylineId) ?? STREAM_COLORS[0];
+
+      return {
+        ...cluster,
+        particleCount: clusterParticles.length,
+        avgSignal:
+          clusterParticles.length > 0
+            ? clusterParticles.reduce((sum, particle) => sum + particle.signal_strength, 0) / clusterParticles.length
+            : 0,
+        accentColor: color.stroke,
+        fillColor: color.fill,
+        isAnchorViewpoint:
+          cluster.viewpointId === activeViewpointId && cluster.storylineId === anchorStorylineId
+      };
+    })
+    .sort((left, right) => {
+      const leftRank = storylineById.get(left.storylineId)?.display_rank ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = storylineById.get(right.storylineId)?.display_rank ?? Number.MAX_SAFE_INTEGER;
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+      if (right.particleCount !== left.particleCount) {
+        return right.particleCount - left.particleCount;
+      }
+      return left.label.localeCompare(right.label);
+    });
+
+  return { clusters, particles: bucketParticles };
 }
 
 function getParticleVisuals(
   clusters: EvidenceClusterVisual[],
-  scope: ScopedEvidenceState
+  particles: PublishedEvidenceParticle[],
+  activeViewpointId: string | null,
+  anchorStorylineId: string | null,
+  selectedClusterIds: string[]
 ): EvidenceParticleVisual[] {
-  const clusterByViewpointId = new Map(
-    clusters.map((cluster) => [cluster.viewpointId ?? `cluster:${cluster.id}`, cluster])
+  const clusterByKey = new Map(
+    clusters.map((cluster) => [`${cluster.storylineId}::${cluster.viewpointId ?? ""}`, cluster])
   );
+  const selectedClusterIdSet = new Set(selectedClusterIds);
 
-  return scope.particles.map((particle) => {
-    const cluster =
-      clusterByViewpointId.get(particle.viewpoint_id) ??
-      clusters[0] ??
-      ({
-        id: `derived-${particle.viewpoint_id}`,
-        viewpointTitle: particle.viewpoint_id
-      } as Pick<EvidenceClusterVisual, "id" | "viewpointTitle">);
+  return particles
+    .map((particle) => {
+      const cluster =
+        clusterByKey.get(`${particle.storyline_id}::${particle.viewpoint_id}`) ??
+        clusters.find((item) => item.storylineId === particle.storyline_id) ??
+        (clusters[0] ??
+          ({
+            id: `derived-${particle.storyline_id}-${particle.viewpoint_id}`,
+            storylineId: particle.storyline_id,
+            storylineTitle: particle.storyline_id,
+            viewpointTitle: particle.viewpoint_id,
+            accentColor: STREAM_COLORS[0].stroke,
+            fillColor: STREAM_COLORS[0].fill
+          } as Pick<
+            EvidenceClusterVisual,
+            "id" | "storylineId" | "storylineTitle" | "viewpointTitle" | "accentColor" | "fillColor"
+          >));
+      const isHighlighted =
+        selectedClusterIdSet.size > 0
+          ? selectedClusterIdSet.has(cluster.id)
+          : particle.viewpoint_id === activeViewpointId && particle.storyline_id === anchorStorylineId;
 
-    return {
-      particleId: particle.particle_id,
-      clusterId: cluster.id,
-      viewpointId: particle.viewpoint_id,
-      viewpointTitle: cluster.viewpointTitle,
-      bucketIndex: particle.bucket_index,
-      commentId: particle.comment_id,
-      excerpt: particle.excerpt,
-      signalStrength: particle.signal_strength,
-      size: 3 + particle.signal_strength * 5 + (particle.viewpoint_id === scope.resolvedViewpointId ? 1.5 : 0),
-      isActiveViewpoint: particle.viewpoint_id === scope.resolvedViewpointId
-    };
-  });
+      return {
+        particleId: particle.particle_id,
+        clusterId: cluster.id,
+        storylineId: particle.storyline_id,
+        storylineTitle: cluster.storylineTitle,
+        viewpointId: particle.viewpoint_id,
+        viewpointTitle: cluster.viewpointTitle,
+        bucketIndex: particle.bucket_index,
+        commentId: particle.comment_id,
+        excerpt: particle.excerpt,
+        signalStrength: particle.signal_strength,
+        size: 3 + particle.signal_strength * 5 + (isHighlighted ? 1.5 : 0),
+        accentColor: cluster.accentColor,
+        fillColor: cluster.fillColor,
+        isHighlighted
+      };
+    })
+    .filter((particle) => selectedClusterIdSet.size === 0 || selectedClusterIdSet.has(particle.clusterId));
 }
 
 function createCanvasLayout(
@@ -233,12 +454,10 @@ function createCanvasLayout(
 function ParticleFieldCanvas({
   clusters,
   particles,
-  activeViewpointId,
   onParticleClick
 }: {
   clusters: EvidenceClusterVisual[];
   particles: EvidenceParticleVisual[];
-  activeViewpointId: string | null;
   onParticleClick: (particle: EvidenceParticleVisual) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -430,20 +649,23 @@ function ParticleFieldCanvas({
             continue;
           }
 
+          const clusterLayout = clusterLayoutById.get(left.clusterId);
+          context.save();
           context.beginPath();
           context.moveTo(left.x, left.y);
           context.lineTo(right.x, right.y);
-          context.strokeStyle = `rgba(86, 204, 242, ${0.05 * (1 - distance / 88)})`;
+          context.globalAlpha = 0.05 * (1 - distance / 88);
+          context.strokeStyle = clusterLayout?.accentColor ?? "#56CCF2";
           context.lineWidth = 0.8;
           context.stroke();
+          context.restore();
         }
       }
 
       for (const particleLayout of particleLayouts) {
-        const isActiveParticle =
-          particleLayout.particle.isActiveViewpoint || particleLayout.particle.viewpointId === activeViewpointId;
+        const isHighlighted = particleLayout.particle.isHighlighted;
 
-        if (isActiveParticle) {
+        if (isHighlighted) {
           const halo = context.createRadialGradient(
             particleLayout.x,
             particleLayout.y,
@@ -452,8 +674,8 @@ function ParticleFieldCanvas({
             particleLayout.y,
             particleLayout.radius * 4.4
           );
-          halo.addColorStop(0, "rgba(86, 204, 242, 0.28)");
-          halo.addColorStop(1, "rgba(86, 204, 242, 0)");
+          halo.addColorStop(0, `${particleLayout.particle.accentColor}4a`);
+          halo.addColorStop(1, `${particleLayout.particle.accentColor}00`);
           context.beginPath();
           context.arc(particleLayout.x, particleLayout.y, particleLayout.radius * 4.4, 0, Math.PI * 2);
           context.fillStyle = halo;
@@ -462,12 +684,14 @@ function ParticleFieldCanvas({
 
         context.beginPath();
         context.arc(particleLayout.x, particleLayout.y, particleLayout.radius, 0, Math.PI * 2);
-        context.fillStyle = isActiveParticle ? "#56CCF2" : "rgba(58, 74, 92, 0.92)";
+        context.fillStyle = isHighlighted
+          ? particleLayout.particle.accentColor
+          : `${particleLayout.particle.accentColor}88`;
         context.fill();
 
         context.beginPath();
         context.arc(particleLayout.x, particleLayout.y, Math.max(1.5, particleLayout.radius * 0.42), 0, Math.PI * 2);
-        context.fillStyle = isActiveParticle ? "#F2C94C" : "rgba(220, 233, 249, 0.68)";
+        context.fillStyle = isHighlighted ? "#F2C94C" : "rgba(220, 233, 249, 0.68)";
         context.fill();
       }
 
@@ -480,7 +704,7 @@ function ParticleFieldCanvas({
       cancelled = true;
       cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [activeViewpointId, clusters, particles]);
+  }, [clusters, particles]);
 
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -532,38 +756,152 @@ export function EvidencePanel({
   onEvidenceFocus,
   storylines,
   activeStorylineId,
+  activeStorylineIds,
   onStorylineSelect
 }: EvidencePanelProps) {
-  const storyline =
-    scope.storylineId === null
-      ? null
-      : bundle.stream.storylines.find((item) => item.storyline_id === scope.storylineId) ?? null;
-  const resolvedViewpoint =
-    scope.resolvedViewpointId === null
-      ? null
-      : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === scope.resolvedViewpointId) ?? null;
-
-  const bucketSummaries = useMemo(
-    () =>
-      storyline ? getBucketSummaries(bundle, storyline.storyline_id, scope.resolvedBucketIndex) : [],
-    [bundle, scope.resolvedBucketIndex, storyline]
+  const availableStorylines = useMemo(
+    () => sortStorylines(storylines ?? bundle.stream.storylines),
+    [bundle.stream.storylines, storylines]
   );
-  const clusters = useMemo(() => getClusterVisuals(bundle, scope), [bundle, scope]);
-  const particles = useMemo(() => getParticleVisuals(clusters, scope), [clusters, scope]);
+  const seededStorylineIds = useMemo(
+    () =>
+      resolveSelectedStorylineIds({
+        availableStorylines,
+        activeStorylineIds,
+        activeStorylineId,
+        scopeStorylineId: scope.storylineId
+      }),
+    [activeStorylineId, activeStorylineIds, availableStorylines, scope.storylineId]
+  );
+  const seedKey = seededStorylineIds.join("::");
+  const [selectedStorylineIds, setSelectedStorylineIds] = useState<string[]>(seededStorylineIds);
+  const [selectedClusterIds, setSelectedClusterIds] = useState<string[]>([]);
+  const anchorStorylineId = activeStorylineId ?? scope.storylineId ?? selectedStorylineIds[0] ?? null;
+
+  useEffect(() => {
+    setSelectedStorylineIds(seededStorylineIds);
+    setSelectedClusterIds([]);
+  }, [seedKey, seededStorylineIds]);
+
+  const { resolvedBucketIndex, fallbackMessage } = useMemo(
+    () => getBucketResolution(bundle, selectedStorylineIds, scope.requestedBucketIndex),
+    [bundle, scope.requestedBucketIndex, selectedStorylineIds]
+  );
+  const bucketSummaries = useMemo(
+    () => getBucketSummaries(bundle, selectedStorylineIds, resolvedBucketIndex),
+    [bundle, resolvedBucketIndex, selectedStorylineIds]
+  );
+  const { clusters: allClusters, particles: bucketParticles } = useMemo(
+    () =>
+      getClusterVisuals(
+        bundle,
+        availableStorylines,
+        selectedStorylineIds,
+        resolvedBucketIndex,
+        scope.resolvedViewpointId,
+        anchorStorylineId
+      ),
+    [
+      anchorStorylineId,
+      availableStorylines,
+      bundle,
+      resolvedBucketIndex,
+      scope.resolvedViewpointId,
+      selectedStorylineIds
+    ]
+  );
+
+  useEffect(() => {
+    setSelectedClusterIds((current) => current.filter((clusterId) => allClusters.some((cluster) => cluster.id === clusterId)));
+  }, [allClusters]);
+
+  const particles = useMemo(
+    () =>
+      getParticleVisuals(
+        allClusters,
+        bucketParticles,
+        scope.resolvedViewpointId,
+        anchorStorylineId,
+        selectedClusterIds
+      ),
+    [allClusters, anchorStorylineId, bucketParticles, scope.resolvedViewpointId, selectedClusterIds]
+  );
+  const visibleClusterIds = useMemo(() => new Set(particles.map((particle) => particle.clusterId)), [particles]);
+  const visibleClusters = useMemo(
+    () =>
+      selectedClusterIds.length > 0
+        ? allClusters.filter((cluster) => visibleClusterIds.has(cluster.id))
+        : allClusters,
+    [allClusters, selectedClusterIds.length, visibleClusterIds]
+  );
+  const resolvedViewpoint =
+    selectedClusterIds.length > 0
+      ? null
+      : scope.resolvedViewpointId === null
+        ? null
+        : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === scope.resolvedViewpointId) ?? null;
+
+  const handleStorylineToggle = useCallback(
+    (storylineId: string) => {
+      setSelectedClusterIds([]);
+      setSelectedStorylineIds((current) => {
+        if (current.includes(storylineId)) {
+          return current.length === 1 ? current : current.filter((id) => id !== storylineId);
+        }
+
+        const nextIds = new Set([...current, storylineId]);
+        return availableStorylines
+          .map((storyline) => storyline.storyline_id)
+          .filter((id) => nextIds.has(id));
+      });
+    },
+    [availableStorylines]
+  );
+
+  const handleClusterToggle = useCallback(
+    (cluster: EvidenceClusterVisual) => {
+      let nextClusterIds: string[] = [];
+
+      setSelectedClusterIds((current) => {
+        nextClusterIds = current.includes(cluster.id)
+          ? current.filter((clusterId) => clusterId !== cluster.id)
+          : allClusters
+              .map((item) => item.id)
+              .filter((clusterId) => clusterId === cluster.id || current.includes(clusterId));
+        return nextClusterIds;
+      });
+
+      const impact =
+        nextClusterIds.length === 0
+          ? `已清除证据簇筛选`
+          : nextClusterIds.length === 1
+            ? `已聚焦证据簇 ${cluster.label} / 桶 ${cluster.bucketIndex}`
+            : `已叠加 ${nextClusterIds.length} 个证据簇 / 桶 ${cluster.bucketIndex}`;
+
+      onEvidenceFocus({
+        storylineId: cluster.storylineId,
+        viewpointId: nextClusterIds.length === 0 ? null : cluster.viewpointId,
+        bucketIndex: cluster.bucketIndex,
+        impact
+      });
+    },
+    [allClusters, onEvidenceFocus]
+  );
 
   const handleParticleClick = useCallback(
     (particle: EvidenceParticleVisual) => {
       onEvidenceFocus({
+        storylineId: particle.storylineId,
         viewpointId: particle.viewpointId,
         bucketIndex: particle.bucketIndex,
-        impact: `${`\u5df2\u5b9a\u4f4d\u8bc1\u636e\u7c92\u5b50`} ${particle.commentId} / ${`\u6876`} ${particle.bucketIndex}`
+        impact: `已定位 ${particle.storylineTitle} / ${particle.viewpointTitle} / 桶 ${particle.bucketIndex}`
       });
     },
     [onEvidenceFocus]
   );
 
-  if (!storyline || (!scope.particles.length && !scope.evidenceClusters.length)) {
-    return <div className="empty-state">{`\u8bc1\u636e\u89c6\u56fe\u5f53\u524d\u6ca1\u6709\u53ef\u6e32\u67d3\u7684\u5207\u7247\u3002`}</div>;
+  if (selectedStorylineIds.length === 0 || (bucketSummaries.length === 0 && allClusters.length === 0 && particles.length === 0)) {
+    return <div className="empty-state">{`证据视图当前没有可渲染的切片。`}</div>;
   }
 
   return (
@@ -573,31 +911,37 @@ export function EvidencePanel({
           <p className="workspace-view__kicker">{`EVIDENCE FIELD`}</p>
           <h2>{`\u65f6\u95f4-\u8bc1\u636e\u7c92\u5b50\u573a`}</h2>
           <p className="workspace-view__description">
-            {resolvedViewpoint
-              ? `${resolvedViewpoint.title}${`\u4f5c\u4e3a\u5f53\u524d\u89c6\u89d2\u951a\u70b9\u3002`}`
-              : `\u5f53\u524d\u5207\u7247\u6309\u4e3b\u7ebf\u8bc1\u636e\u805a\u5408\u663e\u793a\u3002`}
+            {selectedClusterIds.length > 0
+              ? `当前已叠加 ${selectedClusterIds.length} 个观点簇。`
+              : resolvedViewpoint
+                ? `${resolvedViewpoint.title}作为当前观点锚点。`
+                : selectedStorylineIds.length > 1
+                  ? `当前切片按 ${selectedStorylineIds.length} 条主线聚合显示。`
+                  : `当前切片按主线证据聚合显示。`}
           </p>
         </div>
         <div className="workspace-view__controls">
           {storylines && onStorylineSelect ? (
             <StorylineSwitchHeader
-              storylines={storylines}
-              activeStorylineId={activeStorylineId ?? null}
-              onStorylineSelect={onStorylineSelect}
+              storylines={availableStorylines}
+              activeStorylineId={anchorStorylineId}
+              activeStorylineIds={selectedStorylineIds}
+              onStorylineSelect={handleStorylineToggle}
               eyebrow={null}
               className="storyline-switcher--inline"
+              selectionMode="multiple"
             />
           ) : null}
           <div className="evidence-stage__summary">
-            {scope.resolvedBucketIndex !== null ? (
-              <span className="workspace-model">{`\u6876 ${scope.resolvedBucketIndex}`}</span>
+            {resolvedBucketIndex !== null ? (
+              <span className="workspace-model">{`\u6876 ${resolvedBucketIndex}`}</span>
             ) : null}
-            <span className="tone-pill tone-pill--focus">{`${clusters.length} ${`\u7c07`} / ${particles.length} ${`\u7c92\u5b50`}`}</span>
+            <span className="tone-pill tone-pill--focus">{`${selectedStorylineIds.length} 主线 / ${visibleClusters.length} 簇 / ${particles.length} 粒子`}</span>
           </div>
         </div>
       </div>
 
-      {scope.fallbackMessage ? <p className="detail-panel__note">{scope.fallbackMessage}</p> : null}
+      {fallbackMessage ? <p className="detail-panel__note">{fallbackMessage}</p> : null}
 
       <div className="evidence-stage">
         <div className="evidence-stage__buckets">
@@ -613,7 +957,9 @@ export function EvidencePanel({
                 {formatBucketStart(bucket.bucketStart, bundle.meta.bucket_granularity)}
               </span>
               <span className="evidence-bucket__meta">
-                {`${bucket.clusterCount} ${`\u7c07`} / ${bucket.particleCount} ${`\u7c92\u5b50`}`}
+                {`${bucket.clusterCount} 簇 / ${bucket.particleCount} 粒子${
+                  bucket.storylineCount > 1 ? ` / ${bucket.storylineCount} 主线` : ""
+                }`}
               </span>
             </button>
           ))}
@@ -621,40 +967,48 @@ export function EvidencePanel({
 
         <div className="evidence-stage__field">
           <ParticleFieldCanvas
-            clusters={clusters}
+            clusters={visibleClusters}
             particles={particles}
-            activeViewpointId={scope.resolvedViewpointId}
             onParticleClick={handleParticleClick}
           />
         </div>
 
         <div className="evidence-stage__cluster-strip">
-          {clusters.map((cluster) => (
-            <button
-              key={cluster.id}
-              type="button"
-              className={`evidence-stage__cluster-chip ${
-                cluster.isActiveViewpoint ? "evidence-stage__cluster-chip--active" : ""
-              }`}
-              onClick={() =>
-                onEvidenceFocus({
-                  viewpointId: cluster.viewpointId,
-                  bucketIndex: cluster.bucketIndex,
-                  impact: `${`\u5df2\u805a\u7126\u8bc1\u636e\u7c07`} ${cluster.label} / ${`\u6876`} ${cluster.bucketIndex}`
-                })
-              }
-            >
-              <div className="evidence-stage__cluster-chip-head">
-                <span className="evidence-stage__cluster-chip-dot" style={{ background: cluster.accentColor }} />
-                <strong>{cluster.label}</strong>
-              </div>
-              <div className="evidence-stage__cluster-chip-meta">
-                <span>{cluster.viewpointTitle}</span>
-                <span>{`${cluster.commentCount} ${`\u6761\u8bc4\u8bba`}`}</span>
-                <span>{`Signal ${cluster.avgSignal.toFixed(2)}`}</span>
-              </div>
-            </button>
-          ))}
+          {allClusters.map((cluster) => {
+            const isSelected =
+              selectedClusterIds.length > 0
+                ? selectedClusterIds.includes(cluster.id)
+                : cluster.isAnchorViewpoint;
+            const clusterStyle = {
+              "--cluster-accent": cluster.accentColor,
+              "--cluster-fill": cluster.fillColor,
+              borderColor: isSelected ? `${cluster.accentColor}55` : undefined,
+              background: isSelected
+                ? `linear-gradient(180deg, ${cluster.fillColor}24, rgba(10, 18, 28, 0.92))`
+                : undefined
+            } as CSSProperties;
+
+            return (
+              <button
+                key={cluster.id}
+                type="button"
+                className={`evidence-stage__cluster-chip ${isSelected ? "evidence-stage__cluster-chip--active" : ""}`}
+                style={clusterStyle}
+                onClick={() => handleClusterToggle(cluster)}
+              >
+                <div className="evidence-stage__cluster-chip-head">
+                  <span className="evidence-stage__cluster-chip-dot" style={{ background: cluster.accentColor }} />
+                  <strong>{cluster.label}</strong>
+                </div>
+                <div className="evidence-stage__cluster-chip-meta">
+                  <span className="evidence-stage__cluster-chip-storyline">{cluster.storylineTitle}</span>
+                  <span>{cluster.viewpointTitle}</span>
+                  <span>{`${cluster.commentCount} 条评论`}</span>
+                  <span>{`Signal ${cluster.avgSignal.toFixed(2)}`}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </section>

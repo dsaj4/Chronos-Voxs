@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import {
   Area,
   AreaChart,
@@ -133,26 +133,36 @@ function ProportionBar({
         })}
       </div>
 
-      <div className="storyline-stream__proportion-actions">
+      <div className="storyline-stream__proportion-row">
         {storylines.map((storyline, index) => {
           const value = proportions[storyline.storyline_id] ?? 0;
           const percent = total > 0 ? (value / total) * 100 : 100 / Math.max(1, storylines.length);
           const color = STREAM_COLORS[index % STREAM_COLORS.length];
           const isActive = storyline.storyline_id === activeId;
+          const accentStyle = {
+            width: `${percent}%`,
+            minWidth: 86,
+            "--storyline-accent": color.stroke,
+            "--storyline-fill": color.fill,
+            background: isActive ? `${color.fill}1f` : "rgba(8, 14, 21, 0.72)"
+          } as CSSProperties;
           return (
             <button
               key={storyline.storyline_id}
               type="button"
               className={`storyline-stream__proportion-button ${isActive ? "storyline-stream__proportion-button--active" : ""}`}
+              style={accentStyle}
               onClick={() => onSelect(storyline.storyline_id)}
             >
-              <span
-                className="storyline-stream__proportion-dot"
-                style={{ background: color.stroke }}
-                aria-hidden="true"
-              />
-              <span className="storyline-stream__proportion-label">{storyline.title}</span>
-              <span className="storyline-stream__proportion-value">{`${percent.toFixed(0)}%`}</span>
+              <span className="storyline-stream__proportion-inline">
+                <span
+                  className="storyline-stream__proportion-dot"
+                  style={{ background: color.stroke }}
+                  aria-hidden="true"
+                />
+                <span className="storyline-stream__proportion-title">{storyline.title}</span>
+              </span>
+              <span className="storyline-stream__proportion-share">{`${percent.toFixed(0)}%`}</span>
             </button>
           );
         })}

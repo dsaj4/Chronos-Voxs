@@ -46,6 +46,31 @@ describe("EvidencePanel", () => {
     expect(markup).toContain("evidence-stage__cluster-chip");
   });
 
+  it("supports rendering multi-storyline evidence selections with aggregate summary", () => {
+    const bundle = createPublishedBundleFixture();
+    const scope = getScopedEvidenceState(
+      bundle,
+      createFocus({ activeStorylineIds: ["st_001", "st_002"], activeBucketIndex: 1, activeViewpointId: null })
+    );
+
+    const markup = renderToStaticMarkup(
+      <EvidencePanel
+        bundle={bundle}
+        scope={scope}
+        storylines={bundle.stream.storylines}
+        activeStorylineId="st_001"
+        activeStorylineIds={["st_001", "st_002"]}
+        onBucketSelect={() => undefined}
+        onEvidenceFocus={() => undefined}
+        onStorylineSelect={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("2 主线");
+    expect(markup).toContain("evidence-stage__cluster-chip-storyline");
+    expect(markup).toContain("evidence-stage__field");
+  });
+
   it("falls back to the nearest evidence bucket when the requested slice is empty", () => {
     const bundle = createPublishedBundleFixture();
     const scope = getScopedEvidenceState(

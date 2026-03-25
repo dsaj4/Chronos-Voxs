@@ -264,22 +264,23 @@ export function WorkspaceShell({
                 scope={evidenceScope}
                 storylines={bundle.stream.storylines}
                 activeStorylineId={activeStorylineId}
+                activeStorylineIds={focus.activeStorylineIds}
                 onStorylineSelect={(storylineId) => {
                   setLocalOverride(null);
                   onStorylineSelect(storylineId);
                 }}
                 onBucketSelect={(bucketIndex) => {
                   setLocalOverride({
-                    storylineId: evidenceScope.storylineId,
+                    storylineId: activeStorylineId ?? evidenceScope.storylineId,
                     viewpointId: visibleFocus.activeViewpointId,
                     bucketIndex,
                     impact: `\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876 ${bucketIndex}`,
                     sourceView: "evidence"
                   });
                 }}
-                onEvidenceFocus={({ viewpointId, bucketIndex, impact }) => {
+                onEvidenceFocus={({ storylineId, viewpointId, bucketIndex, impact }) => {
                   setLocalOverride({
-                    storylineId: evidenceScope.storylineId,
+                    storylineId: storylineId ?? activeStorylineId ?? evidenceScope.storylineId,
                     viewpointId,
                     bucketIndex,
                     impact,

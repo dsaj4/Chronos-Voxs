@@ -32,6 +32,8 @@ describe("StorylinePanel", () => {
     expect(markup).toContain("storyline-forecast");
     expect(markup).toContain("MODEL FORECAST / BASS DIFFUSION");
     expect(markup).toContain("storyline-stream__proportion");
+    expect(markup).toContain("storyline-stream__proportion-share");
+    expect(markup).not.toContain("storyline-stream__proportion-label");
   });
 
   it("keeps the stream page in chart-first mode when forecast mode is closed", () => {
