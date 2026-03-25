@@ -132,24 +132,37 @@ function getStorylineColorMap(storylines: PublishedStoryline[]) {
   );
 }
 
+function getBucketStartLookup(bundle: PublishedBundle, storylineIds: string[]): Map<number, string> {
+  const selectedStorylineIds = new Set(storylineIds);
+  const bucketStartByIndex = new Map<number, string>();
+
+  for (const snapshot of bundle.stream.storyline_snapshots) {
+    if (selectedStorylineIds.has(snapshot.storyline_id)) {
+      bucketStartByIndex.set(snapshot.bucket_index, snapshot.bucket_start);
+    }
+  }
+
+  for (const particle of bundle.particle_field.particles) {
+    if (selectedStorylineIds.has(particle.storyline_id)) {
+      bucketStartByIndex.set(particle.bucket_index, particle.bucket_start);
+    }
+  }
+
+  for (const cluster of bundle.particle_field.evidence_clusters) {
+    if (selectedStorylineIds.has(cluster.storyline_id)) {
+      bucketStartByIndex.set(cluster.bucket_index, cluster.bucket_start);
+    }
+  }
+
+  return bucketStartByIndex;
+}
+
 function getBucketResolution(
   bundle: PublishedBundle,
   storylineIds: string[],
   requestedBucketIndex: number | null
 ): { resolvedBucketIndex: number | null; fallbackMessage: string | null } {
-  const selectedStorylineIds = new Set(storylineIds);
-  const bucketIndices = [
-    ...new Set(
-      [
-        ...bundle.particle_field.particles
-          .filter((particle) => selectedStorylineIds.has(particle.storyline_id))
-          .map((particle) => particle.bucket_index),
-        ...bundle.particle_field.evidence_clusters
-          .filter((cluster) => selectedStorylineIds.has(cluster.storyline_id))
-          .map((cluster) => cluster.bucket_index)
-      ]
-    )
-  ].sort((left, right) => left - right);
+  const bucketIndices = [...getBucketStartLookup(bundle, storylineIds).keys()].sort((left, right) => left - right);
 
   if (bucketIndices.length === 0) {
     return { resolvedBucketIndex: null, fallbackMessage: null };
@@ -159,26 +172,9 @@ function getBucketResolution(
     return { resolvedBucketIndex: bucketIndices.at(-1) ?? null, fallbackMessage: null };
   }
 
-  if (bucketIndices.includes(requestedBucketIndex)) {
-    return { resolvedBucketIndex: requestedBucketIndex, fallbackMessage: null };
-  }
-
-  const resolvedBucketIndex =
-    [...bucketIndices].sort((left, right) => {
-      const leftDistance = Math.abs(left - requestedBucketIndex);
-      const rightDistance = Math.abs(right - requestedBucketIndex);
-      if (leftDistance !== rightDistance) {
-        return leftDistance - rightDistance;
-      }
-      return right - left;
-    })[0] ?? null;
-
   return {
-    resolvedBucketIndex,
-    fallbackMessage:
-      resolvedBucketIndex === null
-        ? null
-        : `当前请求桶 T${requestedBucketIndex} 没有证据，已回退到最近可见桶 T${resolvedBucketIndex}。`
+    resolvedBucketIndex: requestedBucketIndex,
+    fallbackMessage: null
   };
 }
 
@@ -188,10 +184,20 @@ function getBucketSummaries(
   resolvedBucketIndex: number | null
 ): EvidenceBucketSummary[] {
   const selectedStorylineIds = new Set(storylineIds);
+  const bucketStartByIndex = getBucketStartLookup(bundle, storylineIds);
   const summaryByBucket = new Map<
     number,
     { bucketStart: string; particleCount: number; clusterCount: number; storylineIds: Set<string> }
   >();
+
+  for (const [bucketIndex, bucketStart] of bucketStartByIndex.entries()) {
+    summaryByBucket.set(bucketIndex, {
+      bucketStart,
+      particleCount: 0,
+      clusterCount: 0,
+      storylineIds: new Set<string>()
+    });
+  }
 
   for (const particle of bundle.particle_field.particles) {
     if (!selectedStorylineIds.has(particle.storyline_id)) {
@@ -229,6 +235,15 @@ function getBucketSummaries(
     current.clusterCount += 1;
     current.storylineIds.add(cluster.storyline_id);
     summaryByBucket.set(cluster.bucket_index, current);
+  }
+
+  if (resolvedBucketIndex !== null && !summaryByBucket.has(resolvedBucketIndex)) {
+    summaryByBucket.set(resolvedBucketIndex, {
+      bucketStart: "",
+      particleCount: 0,
+      clusterCount: 0,
+      storylineIds: new Set<string>()
+    });
   }
 
   return [...summaryByBucket.entries()]
@@ -756,8 +771,7 @@ export function EvidencePanel({
   onEvidenceFocus,
   storylines,
   activeStorylineId,
-  activeStorylineIds,
-  onStorylineSelect
+  activeStorylineIds
 }: EvidencePanelProps) {
   const availableStorylines = useMemo(
     () => sortStorylines(storylines ?? bundle.stream.storylines),
@@ -776,7 +790,10 @@ export function EvidencePanel({
   const seedKey = seededStorylineIds.join("::");
   const [selectedStorylineIds, setSelectedStorylineIds] = useState<string[]>(seededStorylineIds);
   const [selectedClusterIds, setSelectedClusterIds] = useState<string[]>([]);
-  const anchorStorylineId = activeStorylineId ?? scope.storylineId ?? selectedStorylineIds[0] ?? null;
+  const anchorStorylineId =
+    activeStorylineId && selectedStorylineIds.includes(activeStorylineId)
+      ? activeStorylineId
+      : selectedStorylineIds[0] ?? scope.storylineId ?? null;
 
   useEffect(() => {
     setSelectedStorylineIds(seededStorylineIds);
@@ -834,6 +851,16 @@ export function EvidencePanel({
         : allClusters,
     [allClusters, selectedClusterIds.length, visibleClusterIds]
   );
+  const storylineGroups = useMemo(
+    () =>
+      availableStorylines
+        .filter((storyline) => selectedStorylineIds.includes(storyline.storyline_id))
+        .map((storyline) => ({
+          storyline,
+          clusters: allClusters.filter((cluster) => cluster.storylineId === storyline.storyline_id)
+        })),
+    [allClusters, availableStorylines, selectedStorylineIds]
+  );
   const resolvedViewpoint =
     selectedClusterIds.length > 0
       ? null
@@ -843,19 +870,33 @@ export function EvidencePanel({
 
   const handleStorylineToggle = useCallback(
     (storylineId: string) => {
+      let nextStorylineIds: string[] = [];
       setSelectedClusterIds([]);
       setSelectedStorylineIds((current) => {
         if (current.includes(storylineId)) {
-          return current.length === 1 ? current : current.filter((id) => id !== storylineId);
+          nextStorylineIds = current.length === 1 ? current : current.filter((id) => id !== storylineId);
+          return nextStorylineIds;
         }
 
         const nextIds = new Set([...current, storylineId]);
-        return availableStorylines
+        nextStorylineIds = availableStorylines
           .map((storyline) => storyline.storyline_id)
           .filter((id) => nextIds.has(id));
+        return nextStorylineIds;
       });
+
+      const nextAnchorStorylineId =
+        nextStorylineIds.includes(storylineId) ? storylineId : nextStorylineIds[0] ?? null;
+      if (nextAnchorStorylineId && resolvedBucketIndex !== null) {
+        onEvidenceFocus({
+          storylineId: nextAnchorStorylineId,
+          viewpointId: null,
+          bucketIndex: resolvedBucketIndex,
+          impact: `已切换证据主线筛选：${nextStorylineIds.length} 条主线 / 桶 ${resolvedBucketIndex}`
+        });
+      }
     },
-    [availableStorylines]
+    [availableStorylines, onEvidenceFocus, resolvedBucketIndex]
   );
 
   const handleClusterToggle = useCallback(
@@ -900,7 +941,7 @@ export function EvidencePanel({
     [onEvidenceFocus]
   );
 
-  if (selectedStorylineIds.length === 0 || (bucketSummaries.length === 0 && allClusters.length === 0 && particles.length === 0)) {
+  if (selectedStorylineIds.length === 0 || bucketSummaries.length === 0) {
     return <div className="empty-state">{`证据视图当前没有可渲染的切片。`}</div>;
   }
 
@@ -921,7 +962,7 @@ export function EvidencePanel({
           </p>
         </div>
         <div className="workspace-view__controls">
-          {storylines && onStorylineSelect ? (
+          {storylines ? (
             <StorylineSwitchHeader
               storylines={availableStorylines}
               activeStorylineId={anchorStorylineId}
@@ -966,47 +1007,86 @@ export function EvidencePanel({
         </div>
 
         <div className="evidence-stage__field">
-          <ParticleFieldCanvas
-            clusters={visibleClusters}
-            particles={particles}
-            onParticleClick={handleParticleClick}
-          />
+          {visibleClusters.length > 0 && particles.length > 0 ? (
+            <ParticleFieldCanvas
+              clusters={visibleClusters}
+              particles={particles}
+              onParticleClick={handleParticleClick}
+            />
+          ) : (
+            <div className="evidence-stage__field-empty">
+              <div>
+                <strong>{`当前时间点暂无可见证据簇`}</strong>
+                <span>{`保留当前桶选择，继续切换主线或时间点即可查看对应簇。`}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="evidence-stage__cluster-strip">
-          {allClusters.map((cluster) => {
-            const isSelected =
-              selectedClusterIds.length > 0
-                ? selectedClusterIds.includes(cluster.id)
-                : cluster.isAnchorViewpoint;
-            const clusterStyle = {
-              "--cluster-accent": cluster.accentColor,
-              "--cluster-fill": cluster.fillColor,
-              borderColor: isSelected ? `${cluster.accentColor}55` : undefined,
-              background: isSelected
-                ? `linear-gradient(180deg, ${cluster.fillColor}24, rgba(10, 18, 28, 0.92))`
-                : undefined
-            } as CSSProperties;
+          {storylineGroups.map(({ storyline, clusters }) => {
+            const color = STREAM_COLORS[
+              availableStorylines.findIndex((item) => item.storyline_id === storyline.storyline_id) % STREAM_COLORS.length
+            ] ?? STREAM_COLORS[0];
 
             return (
-              <button
-                key={cluster.id}
-                type="button"
-                className={`evidence-stage__cluster-chip ${isSelected ? "evidence-stage__cluster-chip--active" : ""}`}
-                style={clusterStyle}
-                onClick={() => handleClusterToggle(cluster)}
-              >
-                <div className="evidence-stage__cluster-chip-head">
-                  <span className="evidence-stage__cluster-chip-dot" style={{ background: cluster.accentColor }} />
-                  <strong>{cluster.label}</strong>
+              <section key={storyline.storyline_id} className="evidence-stage__cluster-group">
+                <div className="evidence-stage__cluster-group-head">
+                  <div className="evidence-stage__cluster-group-title">
+                    <span className="evidence-stage__cluster-group-dot" style={{ background: color.stroke }} />
+                    <strong>{storyline.title}</strong>
+                  </div>
+                  <span className="tone-pill tone-pill--focus">{`${clusters.length} 簇`}</span>
                 </div>
-                <div className="evidence-stage__cluster-chip-meta">
-                  <span className="evidence-stage__cluster-chip-storyline">{cluster.storylineTitle}</span>
-                  <span>{cluster.viewpointTitle}</span>
-                  <span>{`${cluster.commentCount} 条评论`}</span>
-                  <span>{`Signal ${cluster.avgSignal.toFixed(2)}`}</span>
+                <div className="evidence-stage__cluster-group-meta">
+                  <span>{`主线簇分区`}</span>
+                  <span>{clusters.reduce((sum, cluster) => sum + cluster.particleCount, 0)} 粒子</span>
                 </div>
-              </button>
+                <div className="evidence-stage__cluster-group-list">
+                  {clusters.length > 0 ? (
+                    clusters.map((cluster) => {
+                      const isSelected =
+                        selectedClusterIds.length > 0
+                          ? selectedClusterIds.includes(cluster.id)
+                          : cluster.isAnchorViewpoint;
+                      const clusterStyle = {
+                        "--cluster-accent": cluster.accentColor,
+                        "--cluster-fill": cluster.fillColor,
+                        borderColor: isSelected ? `${cluster.accentColor}55` : undefined,
+                        background: isSelected
+                          ? `linear-gradient(180deg, ${cluster.fillColor}24, rgba(10, 18, 28, 0.92))`
+                          : undefined
+                      } as CSSProperties;
+
+                      return (
+                        <button
+                          key={cluster.id}
+                          type="button"
+                          className={`evidence-stage__cluster-chip ${isSelected ? "evidence-stage__cluster-chip--active" : ""}`}
+                          style={clusterStyle}
+                          onClick={() => handleClusterToggle(cluster)}
+                        >
+                          <div className="evidence-stage__cluster-chip-head">
+                            <span className="evidence-stage__cluster-chip-dot" style={{ background: cluster.accentColor }} />
+                            <strong>{cluster.label}</strong>
+                          </div>
+                          <div className="evidence-stage__cluster-chip-meta">
+                            <span className="evidence-stage__cluster-chip-storyline">{cluster.storylineTitle}</span>
+                            <span>{cluster.viewpointTitle}</span>
+                            <span>{`${cluster.commentCount} 条评论`}</span>
+                            <span>{`Signal ${cluster.avgSignal.toFixed(2)}`}</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="evidence-stage__cluster-empty">
+                      <strong>{`当前桶暂无簇`}</strong>
+                      <span>{`这个主线在当前时间点没有证据簇。`}</span>
+                    </div>
+                  )}
+                </div>
+              </section>
             );
           })}
         </div>

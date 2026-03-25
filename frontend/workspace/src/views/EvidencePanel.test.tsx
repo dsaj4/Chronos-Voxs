@@ -67,19 +67,32 @@ describe("EvidencePanel", () => {
     );
 
     expect(markup).toContain("2 主线");
-    expect(markup).toContain("evidence-stage__cluster-chip-storyline");
+    expect(markup).toContain("evidence-stage__cluster-group");
     expect(markup).toContain("evidence-stage__field");
   });
 
-  it("falls back to the nearest evidence bucket when the requested slice is empty", () => {
+  it("keeps the requested time bucket visible even when that bucket has no evidence", () => {
     const bundle = createPublishedBundleFixture();
     const scope = getScopedEvidenceState(
       bundle,
-      createFocus({ activeBucketIndex: 0, activeViewpointId: "vp_003" })
+      createFocus({ activeStorylineIds: ["st_002"], activeBucketIndex: 0, activeViewpointId: "vp_002" })
     );
 
-    expect(scope.resolvedBucketIndex).toBe(1);
-    expect(scope.fallbackMessage).toContain("\u6700\u8fd1\u6709\u8bc1\u636e\u7684\u65f6\u95f4\u6876");
+    const markup = renderToStaticMarkup(
+      <EvidencePanel
+        bundle={bundle}
+        scope={scope}
+        storylines={bundle.stream.storylines}
+        activeStorylineId="st_002"
+        activeStorylineIds={["st_002"]}
+        onBucketSelect={() => undefined}
+        onEvidenceFocus={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("桶 0");
+    expect(markup).toContain("evidence-stage__field-empty");
+    expect(markup).toContain("当前桶暂无簇");
   });
 
   it("renders a single-cluster single-particle slice without collapsing the stage", () => {

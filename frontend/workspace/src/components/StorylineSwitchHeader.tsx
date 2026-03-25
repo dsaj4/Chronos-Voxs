@@ -38,10 +38,12 @@ export function StorylineSwitchHeader({
   );
 
   return (
-    <div className={`storyline-stream__header storyline-switcher ${className}`.trim()}>
+    <div
+      className={`storyline-stream__header storyline-switcher storyline-switcher--${selectionMode} ${className}`.trim()}
+    >
       {eyebrow ? <p className="eyebrow storyline-switcher__eyebrow">{eyebrow}</p> : null}
 
-      <div className="storyline-stream__legend">
+      <div className={`storyline-stream__legend storyline-stream__legend--${selectionMode}`}>
         {sortedStorylines.map((storyline, index) => {
           const color = STREAM_COLORS[index % STREAM_COLORS.length];
           const isActive = activeIds.has(storyline.storyline_id);
@@ -54,7 +56,9 @@ export function StorylineSwitchHeader({
             <button
               key={storyline.storyline_id}
               type="button"
-              className={`storyline-stream__legend-item ${isActive ? "storyline-stream__legend-item--active" : ""}`}
+              className={`storyline-stream__legend-item storyline-stream__legend-item--${selectionMode} ${
+                isActive ? "storyline-stream__legend-item--active" : ""
+              }`}
               style={accentStyle}
               onClick={() => onStorylineSelect(storyline.storyline_id)}
               aria-pressed={selectionMode === "multiple" ? isActive : undefined}
