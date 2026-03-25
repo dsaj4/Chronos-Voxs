@@ -3,6 +3,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -28,7 +29,8 @@ interface StorylinePanelProps {
 interface StreamChartPoint {
   bucketIndex: number;
   label: string;
-  [storylineId: string]: number | string;
+  isForecast: boolean;
+  [storylineId: string]: number | string | boolean;
 }
 
 interface TooltipEntry {
@@ -36,6 +38,13 @@ interface TooltipEntry {
   value?: number;
   color?: string;
   dataKey?: string | number;
+  payload?: StreamChartPoint;
+}
+
+interface StreamForecastRange {
+  startLabel: string;
+  endLabel: string;
+  splitLabel: string;
 }
 
 function formatStreamBucketLabel(bucketStart: string, granularity: PublishedBundle["meta"]["bucket_granularity"]) {
@@ -68,10 +77,12 @@ function StreamTooltip({
   }
 
   const total = payload.reduce((sum, item) => sum + (item.value ?? 0), 0);
+  const point = payload.find((item) => item.payload)?.payload;
 
   return (
     <div className="stream-tooltip">
       <div className="stream-tooltip__label">{label}</div>
+      {point?.isForecast ? <div className="stream-tooltip__note">{`Forecast window`}</div> : null}
       {payload
         .filter((item) => typeof item.value === "number" && item.value > 0)
         .sort((left, right) => (right.value ?? 0) - (left.value ?? 0))
@@ -97,6 +108,110 @@ function StreamTooltip({
         })}
     </div>
   );
+}
+
+export function buildStreamChartData({
+  bundle,
+  storylines,
+  forecastModel,
+  forecastOpen
+}: {
+  bundle: PublishedBundle;
+  storylines: PublishedBundle["stream"]["storylines"];
+  forecastModel: StorylineForecastViewModel | null;
+  forecastOpen: boolean;
+}): { chartData: StreamChartPoint[]; forecastRange: StreamForecastRange | null } {
+  const bucketLabelByIndex = new Map<number, string>();
+  const snapshotsByStoryline = new Map<string, Map<number, number>>();
+  const lastHistoricalValueByStoryline = new Map<string, number>();
+  const bucketIndices = new Set<number>();
+
+  for (const storyline of storylines) {
+    const storylineSnapshots = bundle.stream.storyline_snapshots
+      .filter((snapshot) => snapshot.storyline_id === storyline.storyline_id)
+      .sort((left, right) => left.bucket_index - right.bucket_index);
+
+    snapshotsByStoryline.set(
+      storyline.storyline_id,
+      new Map(storylineSnapshots.map((snapshot) => [snapshot.bucket_index, snapshot.storyline_heat_index]))
+    );
+
+    for (const snapshot of storylineSnapshots) {
+      bucketIndices.add(snapshot.bucket_index);
+      bucketLabelByIndex.set(
+        snapshot.bucket_index,
+        formatStreamBucketLabel(snapshot.bucket_start, bundle.meta.bucket_granularity) || `T${snapshot.bucket_index}`
+      );
+      lastHistoricalValueByStoryline.set(storyline.storyline_id, snapshot.storyline_heat_index);
+    }
+  }
+
+  const forecastPointByBucket = new Map<number, number>();
+  const forecastBucketIndices =
+    forecastOpen && forecastModel
+      ? forecastModel.chartPoints
+          .filter((point) => point.isForecast)
+          .map((point) => {
+            bucketIndices.add(point.bucketIndex);
+            bucketLabelByIndex.set(point.bucketIndex, point.label);
+            forecastPointByBucket.set(point.bucketIndex, point.forecast ?? 0);
+            return point.bucketIndex;
+          })
+      : [];
+  const firstForecastBucketIndex = forecastBucketIndices.length > 0 ? Math.min(...forecastBucketIndices) : null;
+  const sortedBucketIndices = [...bucketIndices].sort((left, right) => left - right);
+
+  const chartData = sortedBucketIndices.map((bucketIndex) => {
+    const point: StreamChartPoint = {
+      bucketIndex,
+      label: bucketLabelByIndex.get(bucketIndex) ?? `T${bucketIndex}`,
+      isForecast: firstForecastBucketIndex !== null && bucketIndex >= firstForecastBucketIndex
+    };
+
+    for (const storyline of storylines) {
+      const historicalValue = snapshotsByStoryline.get(storyline.storyline_id)?.get(bucketIndex);
+      const isSelectedStoryline = forecastOpen && forecastModel?.storylineId === storyline.storyline_id;
+
+      if (typeof historicalValue === "number") {
+        point[storyline.storyline_id] = historicalValue;
+        continue;
+      }
+
+      if (isSelectedStoryline && forecastPointByBucket.has(bucketIndex)) {
+        point[storyline.storyline_id] = forecastPointByBucket.get(bucketIndex) ?? 0;
+        continue;
+      }
+
+      if (firstForecastBucketIndex !== null && bucketIndex >= firstForecastBucketIndex) {
+        point[storyline.storyline_id] = lastHistoricalValueByStoryline.get(storyline.storyline_id) ?? 0;
+        continue;
+      }
+
+      point[storyline.storyline_id] = 0;
+    }
+
+    return point;
+  });
+
+  if (!forecastOpen || !forecastModel || forecastBucketIndices.length === 0) {
+    return { chartData, forecastRange: null };
+  }
+
+  const splitLabel = forecastModel.splitLabel ?? bucketLabelByIndex.get(firstForecastBucketIndex ?? -1) ?? null;
+  const startLabel = bucketLabelByIndex.get(firstForecastBucketIndex ?? -1) ?? null;
+  const endLabel = bucketLabelByIndex.get(Math.max(...forecastBucketIndices)) ?? null;
+
+  return {
+    chartData,
+    forecastRange:
+      splitLabel && startLabel && endLabel
+        ? {
+            startLabel,
+            endLabel,
+            splitLabel
+          }
+        : null
+  };
 }
 
 function ProportionBar({
@@ -192,41 +307,16 @@ export function StorylinePanel({
   );
   const selectedColor: StreamColor = STREAM_COLORS[selectedStorylineIndex % STREAM_COLORS.length];
 
-  const chartData = useMemo<StreamChartPoint[]>(() => {
-    const maxBucketIndex = Math.max(
-      ...bundle.stream.storyline_snapshots.map((snapshot) => snapshot.bucket_index),
-      0
-    );
-    const snapshotsByStoryline = new Map<string, Map<number, number>>();
-
-    for (const storyline of storylines) {
-      const storylineSnapshots = bundle.stream.storyline_snapshots.filter(
-        (snapshot) => snapshot.storyline_id === storyline.storyline_id
-      );
-      snapshotsByStoryline.set(
-        storyline.storyline_id,
-        new Map(storylineSnapshots.map((snapshot) => [snapshot.bucket_index, snapshot.storyline_heat_index]))
-      );
-    }
-
-    return Array.from({ length: maxBucketIndex + 1 }, (_, bucketIndex) => {
-      const point: StreamChartPoint = {
-        bucketIndex,
-        label:
-          formatStreamBucketLabel(
-            bundle.stream.storyline_snapshots.find((snapshot) => snapshot.bucket_index === bucketIndex)?.bucket_start ?? "",
-            bundle.meta.bucket_granularity
-          ) || `T${bucketIndex}`
-      };
-
-      for (const storyline of storylines) {
-        point[storyline.storyline_id] =
-          snapshotsByStoryline.get(storyline.storyline_id)?.get(bucketIndex) ?? 0;
-      }
-
-      return point;
-    });
-  }, [bundle, storylines]);
+  const { chartData, forecastRange } = useMemo(
+    () =>
+      buildStreamChartData({
+        bundle,
+        storylines,
+        forecastModel,
+        forecastOpen
+      }),
+    [bundle, forecastModel, forecastOpen, storylines]
+  );
 
   const latestProportions = useMemo(() => {
     const lastPoint = chartData.at(-1);
@@ -366,6 +456,30 @@ export function StorylinePanel({
                   strokeDasharray: "4 3"
                 }}
               />
+              {forecastRange ? (
+                <ReferenceArea
+                  x1={forecastRange.startLabel}
+                  x2={forecastRange.endLabel}
+                  fill="rgba(86, 204, 242, 0.05)"
+                  fillOpacity={1}
+                  ifOverflow="extendDomain"
+                  strokeOpacity={0}
+                />
+              ) : null}
+              {forecastRange ? (
+                <ReferenceLine
+                  x={forecastRange.splitLabel}
+                  stroke="rgba(86, 204, 242, 0.26)"
+                  strokeDasharray="4 3"
+                  strokeWidth={1}
+                  label={{
+                    value: "Forecast",
+                    position: "insideTopRight",
+                    fill: "rgba(86, 204, 242, 0.45)",
+                    fontSize: 10
+                  }}
+                />
+              ) : null}
               {[...new Set(peakBuckets)].map((bucketIndex) => {
                 const point = chartData.find((item) => item.bucketIndex === bucketIndex);
                 if (!point) {

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BASS_PARAMS } from "../forecast/modelCalculations";
 import { createPublishedBundleFixture } from "../test/createPublishedBundleFixture";
-import { StorylinePanel } from "./StorylinePanel";
+import { buildStreamChartData, StorylinePanel } from "./StorylinePanel";
 import { createStorylineForecastViewModel } from "./storylineModelForecast";
 
 describe("StorylinePanel", () => {
@@ -53,5 +53,29 @@ describe("StorylinePanel", () => {
 
     expect(markup).toContain("storyline-stream__forecast-toggle-model");
     expect(markup).not.toContain("storyline-forecast__chart-shell");
+  });
+
+  it("extends the main stream chart with the active storyline forecast tail", () => {
+    const bundle = createPublishedBundleFixture();
+    const forecastModel = createStorylineForecastViewModel(
+      bundle,
+      "st_001",
+      "bass_diffusion",
+      DEFAULT_BASS_PARAMS
+    );
+
+    const { chartData, forecastRange } = buildStreamChartData({
+      bundle,
+      storylines: bundle.stream.storylines,
+      forecastModel,
+      forecastOpen: true
+    });
+
+    const futurePoint = chartData.find((point) => point.bucketIndex === 3);
+
+    expect(forecastRange?.splitLabel).toBeTruthy();
+    expect(futurePoint?.isForecast).toBe(true);
+    expect(futurePoint?.st_001).toBe(84);
+    expect(futurePoint?.st_002).toBe(54);
   });
 });

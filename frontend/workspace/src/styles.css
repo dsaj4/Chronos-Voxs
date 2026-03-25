@@ -1701,6 +1701,13 @@ button {
   font-size: 0.72rem;
 }
 
+.stream-tooltip__note {
+  color: rgba(242, 201, 76, 0.86);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .stream-tooltip__row {
   justify-content: space-between;
 }
