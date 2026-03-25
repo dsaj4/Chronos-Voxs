@@ -8,6 +8,7 @@ interface StatusThumbnailsProps {
   focus: WorkspaceFocusState;
   relationshipScope: ScopedRelationshipState;
   evidenceScope: ScopedEvidenceState;
+  showRelationshipView?: boolean;
   onPrimaryViewChange: (view: PrimaryViewKey) => void;
 }
 
@@ -140,22 +141,34 @@ export function StatusThumbnails({
   focus,
   relationshipScope,
   evidenceScope,
+  showRelationshipView = true,
   onPrimaryViewChange
 }: StatusThumbnailsProps) {
-  const items: Array<{ view: PrimaryViewKey; content: ReactNode }> = [
-    {
-      view: "storylines",
-      content: <StorylineThumbnail bundle={bundle} focus={focus} />
-    },
-    {
-      view: "relationships",
-      content: <RelationshipThumbnail bundle={bundle} relationshipScope={relationshipScope} />
-    },
-    {
-      view: "evidence",
-      content: <EvidenceThumbnail evidenceScope={evidenceScope} />
-    }
-  ];
+  const items: Array<{ view: PrimaryViewKey; content: ReactNode }> = showRelationshipView
+    ? [
+        {
+          view: "storylines",
+          content: <StorylineThumbnail bundle={bundle} focus={focus} />
+        },
+        {
+          view: "relationships",
+          content: <RelationshipThumbnail bundle={bundle} relationshipScope={relationshipScope} />
+        },
+        {
+          view: "evidence",
+          content: <EvidenceThumbnail evidenceScope={evidenceScope} />
+        }
+      ]
+    : [
+        {
+          view: "storylines",
+          content: <StorylineThumbnail bundle={bundle} focus={focus} />
+        },
+        {
+          view: "evidence",
+          content: <EvidenceThumbnail evidenceScope={evidenceScope} />
+        }
+      ];
 
   const inactiveItems = items.filter((item) => item.view !== focus.activePrimaryView);
 

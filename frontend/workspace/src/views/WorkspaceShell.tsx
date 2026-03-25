@@ -19,6 +19,10 @@ const StorylinePanel = lazy(async () => {
   return { default: module.StorylinePanel };
 });
 
+// Temporary product switch: keep the relationship implementation in place,
+// but hide it from the current frontend chrome.
+const SHOW_RELATIONSHIP_PANEL = false;
+
 interface WorkspaceShellProps {
   bundle: PublishedBundle;
   focus: WorkspaceFocusState;
@@ -92,23 +96,48 @@ export function WorkspaceShell({
     };
   }, [focus, localOverride]);
 
-  const activeStorylineId = getPrimaryActiveStorylineId(effectiveFocus);
+  const visiblePrimaryView =
+    !SHOW_RELATIONSHIP_PANEL && effectiveFocus.activePrimaryView === "relationships"
+      ? "storylines"
+      : effectiveFocus.activePrimaryView;
+  const visibleFocus = useMemo<WorkspaceFocusState>(
+    () =>
+      visiblePrimaryView === effectiveFocus.activePrimaryView
+        ? effectiveFocus
+        : {
+            ...effectiveFocus,
+            activePrimaryView: visiblePrimaryView
+          },
+    [effectiveFocus, visiblePrimaryView]
+  );
+  const availablePrimaryViews: Array<{ id: PrimaryViewKey; label: string }> = SHOW_RELATIONSHIP_PANEL
+    ? [
+        { id: "storylines", label: `\u4e3b\u7ebf` },
+        { id: "relationships", label: `\u5173\u7cfb` },
+        { id: "evidence", label: `\u8bc1\u636e` }
+      ]
+    : [
+        { id: "storylines", label: `\u4e3b\u7ebf` },
+        { id: "evidence", label: `\u8bc1\u636e` }
+      ];
+
+  const activeStorylineId = getPrimaryActiveStorylineId(visibleFocus);
   const selectedStoryline =
     bundle.stream.storylines.find((storyline) => storyline.storyline_id === activeStorylineId) ??
     bundle.stream.storylines[0] ??
     null;
-  const relationshipScope = getScopedRelationshipState(bundle, effectiveFocus);
-  const evidenceScope = getScopedEvidenceState(bundle, effectiveFocus);
+  const relationshipScope = getScopedRelationshipState(bundle, visibleFocus);
+  const evidenceScope = getScopedEvidenceState(bundle, visibleFocus);
   const relationshipViewpointTitle =
     relationshipScope.displayViewpointId === null
       ? `\u65e0\u7126\u70b9`
       : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === relationshipScope.displayViewpointId)?.title ??
         relationshipScope.displayViewpointId;
   const impactSummary =
-    localOverride && localOverride.sourceView === effectiveFocus.activePrimaryView
+    localOverride && localOverride.sourceView === visibleFocus.activePrimaryView
       ? localOverride.impact
       : getWorkspaceImpactSummary(
-          effectiveFocus.activePrimaryView,
+          visibleFocus.activePrimaryView,
           selectedStoryline?.title ?? null,
           relationshipViewpointTitle,
           relationshipScope,
@@ -131,16 +160,12 @@ export function WorkspaceShell({
         </div>
 
         <nav className="workspace-tabs" aria-label="Primary views">
-          {[
-            { id: "storylines", label: `\u4e3b\u7ebf` },
-            { id: "relationships", label: `\u5173\u7cfb` },
-            { id: "evidence", label: `\u8bc1\u636e` }
-          ].map((item) => (
+          {availablePrimaryViews.map((item) => (
             <button
               key={item.id}
               type="button"
-              className={`cv-view-tab ${effectiveFocus.activePrimaryView === item.id ? "cv-view-tab--active" : ""}`}
-              onClick={() => onPrimaryViewChange(item.id as PrimaryViewKey)}
+              className={`cv-view-tab ${visibleFocus.activePrimaryView === item.id ? "cv-view-tab--active" : ""}`}
+              onClick={() => onPrimaryViewChange(item.id)}
             >
               {item.label}
             </button>
@@ -148,7 +173,7 @@ export function WorkspaceShell({
         </nav>
 
         <div className="workspace-topnav__impact">
-          <span>{`${getPrimaryViewLabel(effectiveFocus.activePrimaryView)}${`\u89c6\u56fe`} 路 ${impactSummary}`}</span>
+          <span>{`${getPrimaryViewLabel(visibleFocus.activePrimaryView)}${`\u89c6\u56fe`} / ${impactSummary}`}</span>
         </div>
       </header>
 
@@ -156,7 +181,7 @@ export function WorkspaceShell({
         <section className="left-column workspace-stage-shell">
           <div className="workspace-stage-shell__overlay" aria-hidden="true" />
           <div className="workspace-stage-shell__content">
-            {effectiveFocus.activePrimaryView === "storylines" ? (
+            {visibleFocus.activePrimaryView === "storylines" ? (
               <Suspense fallback={<div className="loading-state">{`\u4e3b\u7ebf\u821e\u53f0\u6b63\u5728\u52a0\u8f7d\u2026`}</div>}>
                 <StorylinePanel
                   bundle={bundle}
@@ -167,7 +192,7 @@ export function WorkspaceShell({
                   }}
                 />
               </Suspense>
-            ) : effectiveFocus.activePrimaryView === "relationships" ? (
+            ) : SHOW_RELATIONSHIP_PANEL && visibleFocus.activePrimaryView === "relationships" ? (
               <RelationshipPanel
                 bundle={bundle}
                 scope={relationshipScope}
@@ -203,7 +228,7 @@ export function WorkspaceShell({
                 onBucketSelect={(bucketIndex) => {
                   setLocalOverride({
                     storylineId: evidenceScope.storylineId,
-                    viewpointId: effectiveFocus.activeViewpointId,
+                    viewpointId: visibleFocus.activeViewpointId,
                     bucketIndex,
                     impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`,
                     sourceView: "evidence"
@@ -226,7 +251,7 @@ export function WorkspaceShell({
         <aside className="right-column workspace-detail-column">
           <DetailPanel
             bundle={bundle}
-            focus={effectiveFocus}
+            focus={visibleFocus}
             relationshipScope={relationshipScope}
             evidenceScope={evidenceScope}
             impactSummary={impactSummary}
@@ -237,9 +262,10 @@ export function WorkspaceShell({
 
       <StatusThumbnails
         bundle={bundle}
-        focus={effectiveFocus}
+        focus={visibleFocus}
         relationshipScope={relationshipScope}
         evidenceScope={evidenceScope}
+        showRelationshipView={SHOW_RELATIONSHIP_PANEL}
         onPrimaryViewChange={onPrimaryViewChange}
       />
     </div>
