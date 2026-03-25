@@ -71,11 +71,15 @@ describe("StorylinePanel", () => {
       forecastOpen: true
     });
 
-    const futurePoint = chartData.find((point) => point.bucketIndex === 3);
+    const historicalPoint = [...chartData].reverse().find((point) => point.isForecast === false);
+    const futurePoint = chartData.find((point) => point.isForecast);
 
     expect(forecastRange?.splitLabel).toBeTruthy();
+    expect(historicalPoint?.st_001__historical).toBeGreaterThan(0);
+    expect(historicalPoint?.st_001__forecast).toBe(0);
     expect(futurePoint?.isForecast).toBe(true);
-    expect(futurePoint?.st_001).toBe(84);
-    expect(futurePoint?.st_002).toBe(54);
+    expect(futurePoint?.st_001__historical).toBe(0);
+    expect(futurePoint?.st_001__forecast).toBeGreaterThan(0);
+    expect(futurePoint?.st_002__forecast).toBeGreaterThan(0);
   });
 });

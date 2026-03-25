@@ -47,6 +47,37 @@ interface StreamForecastRange {
   splitLabel: string;
 }
 
+const STREAM_HISTORY_SUFFIX = "__historical";
+const STREAM_FORECAST_SUFFIX = "__forecast";
+
+function getHistoricalStreamKey(storylineId: string) {
+  return `${storylineId}${STREAM_HISTORY_SUFFIX}`;
+}
+
+function getForecastStreamKey(storylineId: string) {
+  return `${storylineId}${STREAM_FORECAST_SUFFIX}`;
+}
+
+function getBaseStreamKey(dataKey: string) {
+  if (dataKey.endsWith(STREAM_HISTORY_SUFFIX)) {
+    return dataKey.slice(0, -STREAM_HISTORY_SUFFIX.length);
+  }
+
+  if (dataKey.endsWith(STREAM_FORECAST_SUFFIX)) {
+    return dataKey.slice(0, -STREAM_FORECAST_SUFFIX.length);
+  }
+
+  return dataKey;
+}
+
+function getStreamPointValue(point: StreamChartPoint | undefined, storylineId: string) {
+  if (!point) {
+    return 0;
+  }
+
+  return Number(point[getHistoricalStreamKey(storylineId)] ?? 0) + Number(point[getForecastStreamKey(storylineId)] ?? 0);
+}
+
 function formatStreamBucketLabel(bucketStart: string, granularity: PublishedBundle["meta"]["bucket_granularity"]) {
   if (!bucketStart) {
     return "-";
@@ -169,25 +200,35 @@ export function buildStreamChartData({
     };
 
     for (const storyline of storylines) {
+      const historicalKey = getHistoricalStreamKey(storyline.storyline_id);
+      const forecastKey = getForecastStreamKey(storyline.storyline_id);
       const historicalValue = snapshotsByStoryline.get(storyline.storyline_id)?.get(bucketIndex);
       const isSelectedStoryline = forecastOpen && forecastModel?.storylineId === storyline.storyline_id;
+      const isForecastBucket = firstForecastBucketIndex !== null && bucketIndex >= firstForecastBucketIndex;
 
-      if (typeof historicalValue === "number") {
-        point[storyline.storyline_id] = historicalValue;
+      if (!isForecastBucket && typeof historicalValue === "number") {
+        point[historicalKey] = historicalValue;
+        point[forecastKey] = 0;
         continue;
       }
 
-      if (isSelectedStoryline && forecastPointByBucket.has(bucketIndex)) {
-        point[storyline.storyline_id] = forecastPointByBucket.get(bucketIndex) ?? 0;
+      if (isForecastBucket && isSelectedStoryline && forecastPointByBucket.has(bucketIndex)) {
+        point[historicalKey] = 0;
+        point[forecastKey] = forecastPointByBucket.get(bucketIndex) ?? 0;
         continue;
       }
 
-      if (firstForecastBucketIndex !== null && bucketIndex >= firstForecastBucketIndex) {
-        point[storyline.storyline_id] = lastHistoricalValueByStoryline.get(storyline.storyline_id) ?? 0;
+      if (isForecastBucket) {
+        point[historicalKey] = 0;
+        point[forecastKey] =
+          typeof historicalValue === "number"
+            ? historicalValue
+            : (lastHistoricalValueByStoryline.get(storyline.storyline_id) ?? 0);
         continue;
       }
 
-      point[storyline.storyline_id] = 0;
+      point[historicalKey] = 0;
+      point[forecastKey] = 0;
     }
 
     return point;
@@ -325,7 +366,7 @@ export function StorylinePanel({
     }
 
     return storylines.reduce<Record<string, number>>((current, storyline) => {
-      current[storyline.storyline_id] = Number(lastPoint[storyline.storyline_id] ?? 0);
+      current[storyline.storyline_id] = getStreamPointValue(lastPoint, storyline.storyline_id);
       return current;
     }, {});
   }, [chartData, storylines]);
@@ -410,7 +451,7 @@ export function StorylinePanel({
                     return best;
                   }
                   if (!best || item.value > best.value) {
-                    return { dataKey: item.dataKey, value: item.value };
+                    return { dataKey: getBaseStreamKey(item.dataKey), value: item.value };
                   }
                   return best;
                 }, null);
@@ -421,11 +462,38 @@ export function StorylinePanel({
               }}
             >
               <defs>
+                <linearGradient id="stream-forecast-window" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#f2c94c" stopOpacity={0.02} />
+                  <stop offset="100%" stopColor="#f2c94c" stopOpacity={0.12} />
+                </linearGradient>
+                <pattern
+                  id="stream-forecast-window-stripes"
+                  width="14"
+                  height="14"
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(32)"
+                >
+                  <rect width="14" height="14" fill="#f2c94c" fillOpacity={0.03} />
+                  <line x1="0" y1="0" x2="0" y2="14" stroke="#f2c94c" strokeOpacity={0.12} strokeWidth="3" />
+                </pattern>
                 {gradients.map(({ id, color }) => (
                   <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color.stroke} stopOpacity={0.85} />
                     <stop offset="100%" stopColor={color.fill} stopOpacity={0.28} />
                   </linearGradient>
+                ))}
+                {gradients.map(({ id, color }) => (
+                  <pattern
+                    key={`${id}-forecast`}
+                    id={`${id}-forecast`}
+                    width="12"
+                    height="12"
+                    patternUnits="userSpaceOnUse"
+                    patternTransform="rotate(28)"
+                  >
+                    <rect width="12" height="12" fill={color.fill} fillOpacity={0.14} />
+                    <line x1="0" y1="0" x2="0" y2="12" stroke={color.stroke} strokeOpacity={0.28} strokeWidth="3" />
+                  </pattern>
                 ))}
               </defs>
               <CartesianGrid
@@ -460,7 +528,17 @@ export function StorylinePanel({
                 <ReferenceArea
                   x1={forecastRange.startLabel}
                   x2={forecastRange.endLabel}
-                  fill="rgba(86, 204, 242, 0.05)"
+                  fill="url(#stream-forecast-window)"
+                  fillOpacity={1}
+                  ifOverflow="extendDomain"
+                  strokeOpacity={0}
+                />
+              ) : null}
+              {forecastRange ? (
+                <ReferenceArea
+                  x1={forecastRange.startLabel}
+                  x2={forecastRange.endLabel}
+                  fill="url(#stream-forecast-window-stripes)"
                   fillOpacity={1}
                   ifOverflow="extendDomain"
                   strokeOpacity={0}
@@ -507,9 +585,9 @@ export function StorylinePanel({
                 const isActive = storyline.storyline_id === selectedStorylineId;
                 return (
                   <Area
-                    key={storyline.storyline_id}
+                    key={`${storyline.storyline_id}-historical`}
                     type="monotone"
-                    dataKey={storyline.storyline_id}
+                    dataKey={getHistoricalStreamKey(storyline.storyline_id)}
                     stackId="stream"
                     stroke={color.stroke}
                     strokeWidth={isActive ? 2 : 1}
@@ -522,6 +600,42 @@ export function StorylinePanel({
                             r: 4,
                             fill: color.stroke,
                             stroke: "var(--cv-bg)",
+                            strokeWidth: 2
+                          }
+                        : false
+                    }
+                    name={storyline.title}
+                  />
+                );
+              })}
+              {[...storylines].reverse().map((storyline) => {
+                const gradient = gradients.find(({ id }) =>
+                  id.includes(storyline.storyline_id.replace(/[^a-z0-9]/gi, "").toLowerCase())
+                );
+                const color: StreamColor =
+                  STREAM_COLORS[
+                    storylines.findIndex((item) => item.storyline_id === storyline.storyline_id) %
+                      STREAM_COLORS.length
+                  ];
+                const isActive = storyline.storyline_id === selectedStorylineId;
+                return (
+                  <Area
+                    key={`${storyline.storyline_id}-forecast`}
+                    type="monotone"
+                    dataKey={getForecastStreamKey(storyline.storyline_id)}
+                    stackId="stream"
+                    stroke={color.stroke}
+                    strokeWidth={isActive ? 2.4 : 1.1}
+                    strokeOpacity={isActive ? 0.98 : 0.56}
+                    strokeDasharray={isActive ? "8 4" : "4 4"}
+                    fill={`url(#${gradient?.id ?? ""}-forecast)`}
+                    fillOpacity={1}
+                    activeDot={
+                      isActive
+                        ? {
+                            r: 4.5,
+                            fill: color.stroke,
+                            stroke: "rgba(9, 14, 20, 0.96)",
                             strokeWidth: 2
                           }
                         : false
