@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { getScopedRelationshipState } from "../state/focusSelectors";
-import type { WorkspaceFocusState } from "../state/focusState";
+import { createDefaultModelParamsById, type WorkspaceFocusState } from "../state/focusState";
 import { createPublishedBundleFixture } from "../test/createPublishedBundleFixture";
 import { RelationshipPanel } from "./RelationshipPanel";
 
@@ -18,6 +18,9 @@ function createFocus(overrides: Partial<WorkspaceFocusState>): WorkspaceFocusSta
       relationships: { panX: 0, panY: 0, zoom: 1 },
       evidence: { panX: 0, panY: 0, zoom: 1 }
     },
+    modelParamsById: createDefaultModelParamsById(),
+    appliedModelParamsById: null,
+    savedModelPresets: [],
     ...overrides
   };
 }

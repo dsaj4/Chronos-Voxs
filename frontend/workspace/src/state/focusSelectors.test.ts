@@ -5,7 +5,7 @@ import {
   getScopedRelationshipState,
   resolveFocusForStoryline
 } from "./focusSelectors";
-import type { WorkspaceFocusState } from "./focusState";
+import { createDefaultModelParamsById, type WorkspaceFocusState } from "./focusState";
 
 function createFocus(overrides: Partial<WorkspaceFocusState>): WorkspaceFocusState {
   return {
@@ -20,6 +20,9 @@ function createFocus(overrides: Partial<WorkspaceFocusState>): WorkspaceFocusSta
       relationships: { panX: 0, panY: 0, zoom: 1 },
       evidence: { panX: 0, panY: 0, zoom: 1 }
     },
+    modelParamsById: createDefaultModelParamsById(),
+    appliedModelParamsById: null,
+    savedModelPresets: [],
     ...overrides
   };
 }

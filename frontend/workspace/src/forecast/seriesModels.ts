@@ -33,7 +33,11 @@ export function getStorylineForecastSeries(
   storylineId: string,
   modelId: ForecastModelId
 ): PublishedStorylineForecastSeries | null {
-  return bundle.stream.forecast_series.find((series) => series.storyline_id === storylineId && series.model_id === modelId) ?? null;
+  return (
+    bundle.stream.forecast_series.find(
+      (series) => series.storyline_id === storylineId && series.model_id === modelId
+    ) ?? null
+  );
 }
 
 export function getAvailableStorylineForecastSeries(
@@ -50,8 +54,10 @@ export function createStorylineForecastSelection(
 ): StorylineForecastSelection {
   const fallbackStorylineId = storylineId ?? bundle.stream.storylines[0]?.storyline_id ?? "";
   const availableModels = getAvailableStorylineForecastSeries(bundle, fallbackStorylineId);
-  const activeSeries = getStorylineForecastSeries(bundle, fallbackStorylineId, modelId) ?? availableModels[0] ?? null;
-  const comparisonSeries = availableModels.find((series) => series.model_id !== activeSeries?.model_id) ?? null;
+  const activeSeries =
+    getStorylineForecastSeries(bundle, fallbackStorylineId, modelId) ?? availableModels[0] ?? null;
+  const comparisonSeries =
+    availableModels.find((series) => series.model_id !== activeSeries?.model_id) ?? null;
 
   return {
     storylineId: fallbackStorylineId,
@@ -59,12 +65,20 @@ export function createStorylineForecastSelection(
     availableModels,
     activeSeries,
     comparisonSeries,
-    combinedPoints: activeSeries ? [...activeSeries.historical_points, ...activeSeries.forecast_points] : [],
-    reasonText: activeSeries?.explanation ?? "No published forecast series is available for the selected storyline."
+    combinedPoints: activeSeries
+      ? [...activeSeries.historical_points, ...activeSeries.forecast_points]
+      : [],
+    reasonText:
+      activeSeries?.explanation ??
+      "No published forecast series is available for the selected storyline."
   };
 }
 
-export function getPublishedReasoningForSeries(bundle: PublishedBundle, storylineId: string, modelId: ForecastModelId) {
+export function getPublishedReasoningForSeries(
+  bundle: PublishedBundle,
+  storylineId: string,
+  modelId: ForecastModelId
+) {
   return (
     bundle.reasoning.model_reasoning.find(
       (entry) => entry.storyline_id === storylineId && entry.model_id === modelId

@@ -12,10 +12,16 @@ import {
 import { StorylineSwitchHeader } from "../components/StorylineSwitchHeader";
 import type { PublishedBundle } from "../loader/publishedTypes";
 import { STREAM_COLORS, type StreamColor } from "../presentation/workspaceChrome";
+import { StorylineForecastSection } from "./StorylineForecastSection";
+import type { StorylineForecastViewModel } from "./storylineModelForecast";
 
 interface StorylinePanelProps {
   bundle: PublishedBundle;
   activeStorylineId: string | null;
+  forecastOpen: boolean;
+  forecastModel: StorylineForecastViewModel | null;
+  selectedModelLabel: string;
+  onForecastOpenChange: (open: boolean) => void;
   onStorylineSelect: (storylineId: string) => void;
 }
 
@@ -93,13 +99,88 @@ function StreamTooltip({
   );
 }
 
-export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }: StorylinePanelProps) {
+function ProportionBar({
+  storylines,
+  proportions,
+  activeId,
+  onSelect
+}: {
+  storylines: PublishedBundle["stream"]["storylines"];
+  proportions: Record<string, number>;
+  activeId: string | null;
+  onSelect: (storylineId: string) => void;
+}) {
+  const total = Object.values(proportions).reduce((sum, value) => sum + value, 0);
+
+  return (
+    <div className="storyline-stream__proportion">
+      <div className="storyline-stream__proportion-track" aria-hidden="true">
+        {storylines.map((storyline, index) => {
+          const value = proportions[storyline.storyline_id] ?? 0;
+          const percent = total > 0 ? (value / total) * 100 : 100 / Math.max(1, storylines.length);
+          const color = STREAM_COLORS[index % STREAM_COLORS.length];
+          return (
+            <span
+              key={`${storyline.storyline_id}-track`}
+              className="storyline-stream__proportion-segment"
+              style={{
+                width: `${percent}%`,
+                opacity: storyline.storyline_id === activeId ? 1 : 0.58,
+                background: `linear-gradient(90deg, ${color.fill}, ${color.stroke})`
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <div className="storyline-stream__proportion-actions">
+        {storylines.map((storyline, index) => {
+          const value = proportions[storyline.storyline_id] ?? 0;
+          const percent = total > 0 ? (value / total) * 100 : 100 / Math.max(1, storylines.length);
+          const color = STREAM_COLORS[index % STREAM_COLORS.length];
+          const isActive = storyline.storyline_id === activeId;
+          return (
+            <button
+              key={storyline.storyline_id}
+              type="button"
+              className={`storyline-stream__proportion-button ${isActive ? "storyline-stream__proportion-button--active" : ""}`}
+              onClick={() => onSelect(storyline.storyline_id)}
+            >
+              <span
+                className="storyline-stream__proportion-dot"
+                style={{ background: color.stroke }}
+                aria-hidden="true"
+              />
+              <span className="storyline-stream__proportion-label">{storyline.title}</span>
+              <span className="storyline-stream__proportion-value">{`${percent.toFixed(0)}%`}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function StorylinePanel({
+  bundle,
+  activeStorylineId,
+  forecastOpen,
+  forecastModel,
+  selectedModelLabel,
+  onForecastOpenChange,
+  onStorylineSelect
+}: StorylinePanelProps) {
   const storylines = useMemo(
     () => [...bundle.stream.storylines].sort((left, right) => left.display_rank - right.display_rank),
     [bundle]
   );
 
   const selectedStorylineId = activeStorylineId ?? storylines[0]?.storyline_id ?? null;
+  const selectedStorylineIndex = Math.max(
+    0,
+    storylines.findIndex((storyline) => storyline.storyline_id === selectedStorylineId)
+  );
+  const selectedColor: StreamColor = STREAM_COLORS[selectedStorylineIndex % STREAM_COLORS.length];
 
   const chartData = useMemo<StreamChartPoint[]>(() => {
     const maxBucketIndex = Math.max(
@@ -137,6 +218,18 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
     });
   }, [bundle, storylines]);
 
+  const latestProportions = useMemo(() => {
+    const lastPoint = chartData.at(-1);
+    if (!lastPoint) {
+      return {};
+    }
+
+    return storylines.reduce<Record<string, number>>((current, storyline) => {
+      current[storyline.storyline_id] = Number(lastPoint[storyline.storyline_id] ?? 0);
+      return current;
+    }, {});
+  }, [chartData, storylines]);
+
   const peakBuckets = useMemo(() => {
     return storylines.slice(0, 2).flatMap((storyline) => {
       const snapshots = bundle.stream.storyline_snapshots.filter(
@@ -155,9 +248,6 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
     });
   }, [bundle, storylines]);
 
-  const selectedStoryline =
-    storylines.find((storyline) => storyline.storyline_id === selectedStorylineId) ?? null;
-
   const gradients = useMemo(
     () =>
       storylines.map((storyline, index) => ({
@@ -166,6 +256,7 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
       })),
     [storylines]
   );
+  const primaryChartHeight = forecastOpen ? 360 : 520;
 
   if (!storylines.length) {
     return <section className="panel">{"\u5f53\u524d\u6ca1\u6709\u53ef\u6e32\u67d3\u7684\u4e3b\u7ebf\u6570\u636e\u3002"}</section>;
@@ -179,22 +270,55 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
           <h2>{`The Stream`}</h2>
           <p className="workspace-view__description">{`\u8206\u8bba\u6d41\u5149\u6c60 / \u5b8f\u89c2\u6f14\u5316\u89c6\u56fe`}</p>
         </div>
-        <StorylineSwitchHeader
-          storylines={storylines}
-          activeStorylineId={selectedStorylineId}
-          onStorylineSelect={onStorylineSelect}
-          eyebrow={null}
-          className="storyline-switcher--inline"
-        />
+
+        <div className="workspace-view__controls">
+          <StorylineSwitchHeader
+            storylines={storylines}
+            activeStorylineId={selectedStorylineId}
+            onStorylineSelect={onStorylineSelect}
+            eyebrow={null}
+            className="storyline-switcher--inline"
+          />
+          <button
+            type="button"
+            className={`storyline-stream__forecast-toggle ${forecastOpen ? "storyline-stream__forecast-toggle--active" : ""}`}
+            onClick={() => onForecastOpenChange(!forecastOpen)}
+          >
+            <span className="storyline-stream__forecast-toggle-dot" aria-hidden="true" />
+            <span>{`\u6a21\u578b\u9884\u6d4b`}</span>
+            <span className="storyline-stream__forecast-toggle-model">{selectedModelLabel}</span>
+          </button>
+        </div>
       </div>
 
-      <div className="storyline-stream__stage">
-        <div className="storyline-stream__chart storyline-stream__chart--primary">
-          <ResponsiveContainer width="100%" height={520} minWidth={320}>
+      <div className="storyline-stream__stage storyline-stream__stage--forecast">
+        <div
+          className="storyline-stream__chart storyline-stream__chart--primary"
+          style={{ height: primaryChartHeight }}
+        >
+          <ResponsiveContainer width="100%" height="100%" minWidth={320}>
             <AreaChart
               data={chartData}
               stackOffset="expand"
               margin={{ top: 16, right: 12, bottom: 8, left: 40 }}
+              onClick={(event) => {
+                const payload =
+                  (event as { activePayload?: Array<{ dataKey?: string | number; value?: number }> } | undefined)
+                    ?.activePayload ?? [];
+                const strongest = payload.reduce<{ dataKey: string; value: number } | null>((best, item) => {
+                  if (typeof item?.dataKey !== "string" || typeof item.value !== "number") {
+                    return best;
+                  }
+                  if (!best || item.value > best.value) {
+                    return { dataKey: item.dataKey, value: item.value };
+                  }
+                  return best;
+                }, null);
+
+                if (strongest && storylines.some((storyline) => storyline.storyline_id === strongest.dataKey)) {
+                  onStorylineSelect(strongest.dataKey);
+                }
+              }}
             >
               <defs>
                 {gradients.map(({ id, color }) => (
@@ -285,7 +409,18 @@ export function StorylinePanel({ bundle, activeStorylineId, onStorylineSelect }:
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {forecastOpen && forecastModel ? (
+          <StorylineForecastSection model={forecastModel} color={selectedColor} />
+        ) : null}
       </div>
+
+      <ProportionBar
+        storylines={storylines}
+        proportions={latestProportions}
+        activeId={selectedStorylineId}
+        onSelect={onStorylineSelect}
+      />
     </section>
   );
 }

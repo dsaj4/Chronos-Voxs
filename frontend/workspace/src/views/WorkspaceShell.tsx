@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { StatusThumbnails } from "../components/StatusThumbnails";
-import type { PublishedBundle } from "../loader/publishedTypes";
+import type { PublishedBundle, ForecastModelId } from "../loader/publishedTypes";
 import { getPrimaryViewLabel } from "../presentation/workspaceChrome";
 import {
   getPrimaryActiveStorylineId,
@@ -9,10 +9,12 @@ import {
   type ScopedEvidenceState,
   type ScopedRelationshipState
 } from "../state/focusSelectors";
-import type { PrimaryViewKey, WorkspaceFocusState } from "../state/focusState";
+import type { WorkspaceFocusState, PrimaryViewKey } from "../state/focusState";
 import { DetailPanel } from "./DetailPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { RelationshipPanel } from "./RelationshipPanel";
+import { StorylineForecastRail } from "./StorylineForecastRail";
+import { createStorylineForecastViewModel } from "./storylineModelForecast";
 
 const StorylinePanel = lazy(async () => {
   const module = await import("./StorylinePanel");
@@ -28,7 +30,13 @@ interface WorkspaceShellProps {
   focus: WorkspaceFocusState;
   onPrimaryViewChange: (view: PrimaryViewKey) => void;
   onStorylineSelect: (storylineId: string) => void;
-  onModelChange: (modelId: WorkspaceFocusState["selectedModelId"]) => void;
+  onModelChange: (modelId: ForecastModelId) => void;
+  onModelParamsChange: (modelId: ForecastModelId, params: WorkspaceFocusState["modelParamsById"][ForecastModelId]) => void;
+  onApplyModelParams: () => void;
+  onResetModelParams: () => void;
+  onSaveModelPreset: (name: string) => void;
+  onDeleteModelPreset: (presetId: string) => void;
+  onLoadModelPreset: (presetId: string) => void;
 }
 
 interface LocalFocusOverride {
@@ -44,7 +52,9 @@ function getWorkspaceImpactSummary(
   storylineTitle: string | null,
   relationshipViewpointTitle: string,
   relationshipScope: ScopedRelationshipState,
-  evidenceScope: ScopedEvidenceState
+  evidenceScope: ScopedEvidenceState,
+  selectedModelLabel: string,
+  storylineForecastOpen: boolean
 ): string {
   const visibleEvidenceClusterCount =
     evidenceScope.evidenceClusters.length > 0
@@ -53,18 +63,24 @@ function getWorkspaceImpactSummary(
 
   if (activeView === "relationships") {
     return relationshipScope.resolvedBucketIndex !== null
-      ? `${`\u5173\u7cfb\u89c6\u56fe\u805a\u7126`} ${relationshipViewpointTitle} / ${`\u6876`} ${relationshipScope.resolvedBucketIndex}`
+      ? `\u5173\u7cfb\u89c6\u56fe\u805a\u7126 ${relationshipViewpointTitle} / \u6876 ${relationshipScope.resolvedBucketIndex}`
       : `\u5173\u7cfb\u89c6\u56fe\u7b49\u5f85\u7126\u70b9`;
   }
 
   if (activeView === "evidence") {
     return evidenceScope.resolvedBucketIndex !== null
-      ? `${`\u8bc1\u636e\u89c6\u56fe\u805a\u7126`} ${`\u6876`} ${evidenceScope.resolvedBucketIndex} / ${visibleEvidenceClusterCount} ${`\u7c07`}`
+      ? `\u8bc1\u636e\u89c6\u56fe\u805a\u7126 \u6876 ${evidenceScope.resolvedBucketIndex} / ${visibleEvidenceClusterCount} \u7c07`
       : `\u8bc1\u636e\u89c6\u56fe\u6682\u65e0\u5207\u7247`;
   }
 
+  if (storylineForecastOpen) {
+    return storylineTitle
+      ? `\u6a21\u578b\u9884\u6d4b / ${selectedModelLabel} / ${storylineTitle}`
+      : `\u6a21\u578b\u9884\u6d4b\u5f85\u542f\u52a8`;
+  }
+
   return storylineTitle
-    ? `${`\u4e3b\u7ebf\u89c6\u56fe\u805a\u7126`} ${storylineTitle}`
+    ? `\u4e3b\u7ebf\u89c6\u56fe\u805a\u7126 ${storylineTitle}`
     : `\u4e3b\u7ebf\u89c6\u56fe\u7b49\u5f85\u7126\u70b9`;
 }
 
@@ -73,9 +89,16 @@ export function WorkspaceShell({
   focus,
   onPrimaryViewChange,
   onStorylineSelect,
-  onModelChange
+  onModelChange,
+  onModelParamsChange,
+  onApplyModelParams,
+  onResetModelParams,
+  onSaveModelPreset,
+  onDeleteModelPreset,
+  onLoadModelPreset
 }: WorkspaceShellProps) {
   const [localOverride, setLocalOverride] = useState<LocalFocusOverride | null>(null);
+  const [storylineForecastOpen, setStorylineForecastOpen] = useState(false);
   const externalFocusKey = `${focus.activeStorylineIds.join(",")}::${focus.activeViewpointId ?? ""}::${focus.activeBucketIndex ?? ""}`;
 
   useEffect(() => {
@@ -133,6 +156,19 @@ export function WorkspaceShell({
       ? `\u65e0\u7126\u70b9`
       : bundle.neural_map.viewpoints.find((item) => item.viewpoint_id === relationshipScope.displayViewpointId)?.title ??
         relationshipScope.displayViewpointId;
+  const selectedModelLabel =
+    bundle.meta.available_models.find((item) => item.id === visibleFocus.selectedModelId)?.label ??
+    visibleFocus.selectedModelId;
+  const forecastModel = useMemo(
+    () =>
+      createStorylineForecastViewModel(
+        bundle,
+        activeStorylineId,
+        visibleFocus.selectedModelId,
+        visibleFocus.modelParamsById[visibleFocus.selectedModelId]
+      ),
+    [activeStorylineId, bundle, visibleFocus.modelParamsById, visibleFocus.selectedModelId]
+  );
   const impactSummary =
     localOverride && localOverride.sourceView === visibleFocus.activePrimaryView
       ? localOverride.impact
@@ -141,8 +177,11 @@ export function WorkspaceShell({
           selectedStoryline?.title ?? null,
           relationshipViewpointTitle,
           relationshipScope,
-          evidenceScope
+          evidenceScope,
+          selectedModelLabel,
+          storylineForecastOpen
         );
+  const showForecastRail = visibleFocus.activePrimaryView === "storylines" && storylineForecastOpen;
 
   return (
     <div className="workspace-shell">
@@ -173,7 +212,7 @@ export function WorkspaceShell({
         </nav>
 
         <div className="workspace-topnav__impact">
-          <span>{`${getPrimaryViewLabel(visibleFocus.activePrimaryView)}${`\u89c6\u56fe`} / ${impactSummary}`}</span>
+          <span>{`${getPrimaryViewLabel(visibleFocus.activePrimaryView)}\u89c6\u56fe / ${impactSummary}`}</span>
         </div>
       </header>
 
@@ -186,6 +225,10 @@ export function WorkspaceShell({
                 <StorylinePanel
                   bundle={bundle}
                   activeStorylineId={activeStorylineId}
+                  forecastOpen={storylineForecastOpen}
+                  forecastModel={forecastModel}
+                  selectedModelLabel={selectedModelLabel}
+                  onForecastOpenChange={setStorylineForecastOpen}
                   onStorylineSelect={(storylineId) => {
                     setLocalOverride(null);
                     onStorylineSelect(storylineId);
@@ -210,7 +253,7 @@ export function WorkspaceShell({
                     storylineId: relationshipScope.storylineId,
                     viewpointId,
                     bucketIndex,
-                    impact: `${`\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9`} ${viewpointTitle} / ${`\u6876`} ${bucketIndex}`,
+                    impact: `\u5df2\u9501\u5b9a\u5173\u7cfb\u8282\u70b9 ${viewpointTitle} / \u6876 ${bucketIndex}`,
                     sourceView: "relationships"
                   });
                 }}
@@ -230,7 +273,7 @@ export function WorkspaceShell({
                     storylineId: evidenceScope.storylineId,
                     viewpointId: visibleFocus.activeViewpointId,
                     bucketIndex,
-                    impact: `${`\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876`} ${bucketIndex}`,
+                    impact: `\u5df2\u9501\u5b9a\u8bc1\u636e\u65f6\u95f4\u6876 ${bucketIndex}`,
                     sourceView: "evidence"
                   });
                 }}
@@ -249,14 +292,29 @@ export function WorkspaceShell({
         </section>
 
         <aside className="right-column workspace-detail-column">
-          <DetailPanel
-            bundle={bundle}
-            focus={visibleFocus}
-            relationshipScope={relationshipScope}
-            evidenceScope={evidenceScope}
-            impactSummary={impactSummary}
-            onModelChange={onModelChange}
-          />
+          {showForecastRail ? (
+            <StorylineForecastRail
+              bundle={bundle}
+              focus={visibleFocus}
+              model={forecastModel}
+              onModelChange={onModelChange}
+              onModelParamsChange={onModelParamsChange}
+              onApplyModelParams={onApplyModelParams}
+              onResetModelParams={onResetModelParams}
+              onSaveModelPreset={onSaveModelPreset}
+              onDeleteModelPreset={onDeleteModelPreset}
+              onLoadModelPreset={onLoadModelPreset}
+            />
+          ) : (
+            <DetailPanel
+              bundle={bundle}
+              focus={visibleFocus}
+              relationshipScope={relationshipScope}
+              evidenceScope={evidenceScope}
+              impactSummary={impactSummary}
+              onModelChange={onModelChange}
+            />
+          )}
         </aside>
       </main>
 

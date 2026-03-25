@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { WorkspaceFocusState } from "../state/focusState";
+import { createDefaultModelParamsById, type WorkspaceFocusState } from "../state/focusState";
 import { createPublishedBundleFixture } from "../test/createPublishedBundleFixture";
 import { WorkspaceShell } from "./WorkspaceShell";
 
@@ -17,6 +17,9 @@ function createFocus(overrides: Partial<WorkspaceFocusState>): WorkspaceFocusSta
       relationships: { panX: 0, panY: 0, zoom: 1 },
       evidence: { panX: 0, panY: 0, zoom: 1 }
     },
+    modelParamsById: createDefaultModelParamsById(),
+    appliedModelParamsById: null,
+    savedModelPresets: [],
     ...overrides
   };
 }
@@ -34,6 +37,12 @@ describe("WorkspaceShell", () => {
         onPrimaryViewChange={() => undefined}
         onStorylineSelect={() => undefined}
         onModelChange={() => undefined}
+        onModelParamsChange={() => undefined}
+        onApplyModelParams={() => undefined}
+        onResetModelParams={() => undefined}
+        onSaveModelPreset={() => undefined}
+        onDeleteModelPreset={() => undefined}
+        onLoadModelPreset={() => undefined}
       />
     );
 
