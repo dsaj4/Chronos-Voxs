@@ -180,6 +180,14 @@ export interface PublishedBundle {
   };
 }
 
+export interface PublishedWorkspaceSession {
+  workspace_id: string;
+  analysis_id: string;
+  bundle_uri: string;
+  default_primary_view: string;
+  created_at: string;
+}
+
 export interface WorkspaceBootstrap {
   bundle: PublishedBundle;
   storylineIndex: Map<string, PublishedStoryline>;

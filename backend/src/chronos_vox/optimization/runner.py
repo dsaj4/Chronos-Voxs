@@ -8,8 +8,16 @@ from pathlib import Path
 from typing import Any
 
 from ..publish import build_forecast_bundle
+from .dashscope_provider import DashScopeSummaryProvider
 from .diagnostics import diagnose_bundle, format_report_markdown
-from .models import OptimizationConfig, OptimizationIterationResult, OptimizationStatus, SummaryTrackResult
+from .models import (
+    OptimizationConfig,
+    OptimizationIssue,
+    OptimizationIterationResult,
+    OptimizationReport,
+    OptimizationStatus,
+    SummaryTrackResult,
+)
 from .pipeline import assemble_analysis_state
 from .summaries import DeterministicSummaryProvider, LlmSummaryTrack
 from .synthetic import build_synthetic_raw_comments
@@ -48,6 +56,32 @@ def _tune_config(config: OptimizationConfig, previous: SummaryTrackResult | None
     return tuned
 
 
+def _failed_report(track_id: str, message: str) -> OptimizationReport:
+    return OptimizationReport(
+        track_id=track_id,  # type: ignore[arg-type]
+        status="failed",
+        structure_passed=False,
+        readability_passed=False,
+        frontend_passed=False,
+        issues=(
+            OptimizationIssue(
+                code="llm_track_execution",
+                severity="error",
+                message=message,
+                field_path="optimization.llm",
+            ),
+        ),
+        metrics={},
+    )
+
+
+def _has_execution_failure(track_results: list[SummaryTrackResult]) -> bool:
+    return any(
+        any(issue.code == "llm_track_execution" for issue in track.diagnostics.issues)
+        for track in track_results
+    )
+
+
 def persist_iteration_artifacts(
     *,
     output_root: Path,
@@ -75,7 +109,7 @@ def run_phase1_optimization(
 ) -> OptimizationIterationResult:
     active_config = config or OptimizationConfig()
     raw_comments = build_synthetic_raw_comments(active_config)
-    llm_track = llm_track or LlmSummaryTrack()
+    llm_track = llm_track or build_llm_summary_track_from_env()
     previous_deterministic: SummaryTrackResult | None = None
     final_result: OptimizationIterationResult | None = None
 
@@ -112,33 +146,46 @@ def run_phase1_optimization(
         previous_deterministic = deterministic_result
 
         if llm_track.is_configured:
-            llm_state = assemble_analysis_state(
-                config=active_config,
-                raw_comments=raw_comments,
-                summary_provider=llm_track.provider,
-                prompt_version=active_config.llm_prompt_version,
-            )
-            llm_bundle = build_forecast_bundle(
-                llm_state,
-                fixture_id=f"{active_config.case_id}-llm-v1",
-                default_model_id="bass_diffusion",
-            )
-            llm_report = diagnose_bundle(
-                track_id="llm",
-                config=active_config,
-                analysis_state=llm_state,
-                bundle=llm_bundle,
-            )
-            track_results.append(
-                SummaryTrackResult(
-                    track_id="llm",
-                    status=llm_report.status,
-                    analysis_state=llm_state,
-                    bundle=llm_bundle,
-                    diagnostics=llm_report,
+            try:
+                llm_state = assemble_analysis_state(
+                    config=active_config,
+                    raw_comments=raw_comments,
+                    summary_provider=llm_track.provider,
                     prompt_version=active_config.llm_prompt_version,
                 )
-            )
+                llm_bundle = build_forecast_bundle(
+                    llm_state,
+                    fixture_id=f"{active_config.case_id}-llm-v1",
+                    default_model_id="bass_diffusion",
+                )
+                llm_report = diagnose_bundle(
+                    track_id="llm",
+                    config=active_config,
+                    analysis_state=llm_state,
+                    bundle=llm_bundle,
+                )
+                track_results.append(
+                    SummaryTrackResult(
+                        track_id="llm",
+                        status=llm_report.status,
+                        analysis_state=llm_state,
+                        bundle=llm_bundle,
+                        diagnostics=llm_report,
+                        prompt_version=active_config.llm_prompt_version,
+                    )
+                )
+            except Exception as exc:
+                track_results.append(
+                    SummaryTrackResult(
+                        track_id="llm",
+                        status="failed",
+                        analysis_state=deterministic_state,
+                        bundle=None,
+                        diagnostics=_failed_report("llm", str(exc)),
+                        prompt_version=active_config.llm_prompt_version,
+                        blocked_reason=str(exc),
+                    )
+                )
         else:
             blocked_report = diagnose_bundle(
                 track_id="llm",
@@ -175,9 +222,14 @@ def run_phase1_optimization(
             )
         if publish_bundle_path is not None and deterministic_result.bundle is not None:
             _write_json(publish_bundle_path, deterministic_result.bundle)
-        if status != "failed":
+        if status != "failed" or _has_execution_failure(track_results):
             break
 
     if final_result is None:
         raise RuntimeError("optimization loop did not produce a result")
     return final_result
+
+
+def build_llm_summary_track_from_env() -> LlmSummaryTrack:
+    provider = DashScopeSummaryProvider.from_env()
+    return LlmSummaryTrack(provider=provider)

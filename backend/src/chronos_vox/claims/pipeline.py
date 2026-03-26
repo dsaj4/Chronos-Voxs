@@ -32,16 +32,9 @@ def build_claim_extraction_payload(request: ClaimExtractionRequest) -> dict[str,
                 "span_id": span.span_id,
                 "comment_id": span.comment_id,
                 "text": span.text,
-                "start_char": span.start_char,
-                "end_char": span.end_char,
-                "heuristic_labels": list(span.heuristic_labels),
-                "candidate_score": span.candidate_score,
-                "metadata": span.metadata,
             }
             for span in accepted_spans
-        ],
-        "case_id": request.case_id,
-        "prompt_version": request.prompt_version,
+        ]
     }
 
 
@@ -90,16 +83,26 @@ def extract_claims(
         )
 
     payload = build_claim_extraction_payload(request)
-    input_hash = stable_input_hash(payload)
+    cache_payload = {
+        "payload": payload,
+        "case_id": request.case_id,
+        "prompt_version": request.prompt_version,
+        "provider": request.provider,
+        "model": request.model,
+    }
+    input_hash = stable_input_hash(cache_payload)
 
     if cache is not None:
-        cached = cache.get(payload)
+        cached = cache.get(cache_payload)
         if cached is not None:
             claims = tuple(normalize_claim_output(cached))
             audit_entry = cached.get("audit_entry")
+            cached_audit_entry = None
+            if audit_entry is not None:
+                cached_audit_entry = {**audit_entry, "cache_hit": True}
             return ClaimExtractionOutcome(
                 claims=claims,
-                audit_entries=(audit_entry,) if audit_entry else (),
+                audit_entries=(cached_audit_entry,) if cached_audit_entry else (),
                 cache_hit=True,
                 status=cached.get("status", "success"),
                 cached_entry=None,
@@ -126,7 +129,7 @@ def extract_claims(
             )
             cache_record = build_cache_record("success", list(claims), audit_entry)
             if cache is not None:
-                cache.put(payload, cache_record)
+                cache.put(cache_payload, cache_record)
 
             return ClaimExtractionOutcome(
                 claims=claims,

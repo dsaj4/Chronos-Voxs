@@ -7,6 +7,7 @@ from chronos_vox.claims import (
     ClaimExtractionCache,
     ClaimExtractionRequest,
     ClaimExtractionRetryPlan,
+    build_claim_extraction_payload,
     extract_claims,
     select_claim_candidate_spans,
 )
@@ -16,9 +17,9 @@ def _valid_claim_output() -> dict[str, object]:
     return {
         "claims": [
             {
+                "span_id": "span_1",
+                "comment_id": "comment_1",
                 "text": "AI agents should begin with workflow automation.",
-                "evidence_start": 0,
-                "evidence_end": 52,
                 "stance": "support",
                 "topic_tags": ["ai_agent_practicalization", "workflow_automation"],
                 "extractor_confidence": 0.94,
@@ -90,6 +91,22 @@ def test_extract_claims_accepts_valid_output_and_populates_audit() -> None:
     assert outcome.audit_entries[0]["metadata"]["span_count"] == 1
 
 
+def test_build_claim_extraction_payload_only_keeps_mapping_ids_and_text() -> None:
+    request = ClaimExtractionRequest(spans=(_accepted_span(),), case_id="case_1", provider="stub", model="stub-model")
+
+    payload = build_claim_extraction_payload(request)
+
+    assert payload == {
+        "spans": [
+            {
+                "span_id": "span_1",
+                "comment_id": "comment_1",
+                "text": "AI agent should start with workflow automation.",
+            }
+        ]
+    }
+
+
 def test_extract_claims_uses_cache_on_second_run() -> None:
     cache = ClaimExtractionCache()
     provider = StubProvider(outputs=[_valid_claim_output()])
@@ -103,6 +120,7 @@ def test_extract_claims_uses_cache_on_second_run() -> None:
     assert second.cache_hit is True
     assert provider.calls == 1
     assert second.claims == first.claims
+    assert second.audit_entries[0]["cache_hit"] is True
     assert second.audit_entries[0]["status"] == "success"
 
 

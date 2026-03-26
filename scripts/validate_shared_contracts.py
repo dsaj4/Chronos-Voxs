@@ -16,6 +16,17 @@ def load_json(path: Path) -> object:
         return json.load(handle)
 
 
+def load_jsonl(path: Path) -> list[object]:
+    rows: list[object] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            rows.append(json.loads(stripped))
+    return rows
+
+
 def validate(schema_name: str, fixture_name: str) -> None:
     schema_path = SCHEMAS / schema_name
     fixture_path = FIXTURES / fixture_name
@@ -37,6 +48,26 @@ def validate(schema_name: str, fixture_name: str) -> None:
     print(f"[ok] {fixture_name} matches {schema_name}")
 
 
+def validate_jsonl(schema_name: str, fixture_name: str) -> None:
+    schema_path = SCHEMAS / schema_name
+    fixture_path = FIXTURES / fixture_name
+
+    schema = load_json(schema_path)
+    validator = Draft202012Validator(schema)
+    rows = load_jsonl(fixture_path)
+    for index, row in enumerate(rows, start=1):
+        errors = sorted(validator.iter_errors(row), key=lambda error: list(error.absolute_path))
+        if errors:
+            messages = [f"{fixture_name} line {index} failed validation against {schema_name}:"]
+            messages.extend(
+                f"- {'/'.join(map(str, error.absolute_path)) or '<root>'}: {error.message}"
+                for error in errors
+            )
+            raise SystemExit("\n".join(messages))
+
+    print(f"[ok] {fixture_name} matches {schema_name}")
+
+
 def main() -> None:
     validate(
         "analysis-state.schema.json",
@@ -45,6 +76,18 @@ def main() -> None:
     validate(
         "forecast-bundle.schema.json",
         "golden-forecast-bundle.ai-agent-practicalization.json",
+    )
+    validate_jsonl(
+        "crawl-record.schema.json",
+        "sample-mediacrawler-records.ai.jsonl",
+    )
+    validate_jsonl(
+        "crawl-record.schema.json",
+        "sample-mediacrawler-bili-comments.real.jsonl",
+    )
+    validate_jsonl(
+        "crawl-record.schema.json",
+        "sample-mediacrawler-bili-contents.real.jsonl",
     )
     print("[done] shared contracts and golden fixtures are valid")
 

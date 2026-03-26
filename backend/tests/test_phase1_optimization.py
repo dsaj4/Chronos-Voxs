@@ -71,7 +71,9 @@ def test_deterministic_phase1_bundle_is_schema_valid_and_diagnostic_green() -> N
 
 
 def test_phase1_optimization_reports_blocked_without_llm_provider() -> None:
-    result = run_phase1_optimization(config=OptimizationConfig())
+    from chronos_vox.optimization import LlmSummaryTrack
+
+    result = run_phase1_optimization(config=OptimizationConfig(), llm_track=LlmSummaryTrack())
 
     assert result.status == "blocked"
     assert result.track_results[0].track_id == "deterministic"

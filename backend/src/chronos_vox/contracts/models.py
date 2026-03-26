@@ -242,6 +242,12 @@ class AnalysisDiagnostics(TypedDict):
     accepted_claim_count: int
     rejected_candidate_count: int
     llm_cache_hits: int
+    claim_batch_count: NotRequired[int]
+    claim_serialized_char_count: NotRequired[int]
+    claim_estimated_input_tokens: NotRequired[int]
+    claim_estimated_output_tokens: NotRequired[int]
+    claim_retry_count: NotRequired[int]
+    claim_fallback_batch_count: NotRequired[int]
 
 
 class AnalysisState(TypedDict):

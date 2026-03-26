@@ -29,6 +29,11 @@ class OptimizationConfig:
     summary_max_length: int = 90
     prompt_version: str = "optimization.det.v1"
     llm_prompt_version: str = "optimization.llm.v1"
+    claim_prompt_version: str = "claims.batch.v1"
+    claim_batch_char_limit: int = 3000
+    claim_alignment_strategy: Literal["exact_then_normalized_then_fallback"] = "exact_then_normalized_then_fallback"
+    claim_cost_metrics_enabled: bool = True
+    claim_batch_concurrency: int = 1
     representative_comment_strategy: Literal["highest_signal"] = "highest_signal"
     evidence_bucket_policy: Literal["per_particle_bucket"] = "per_particle_bucket"
     cluster_label_template: str = "{label}证据簇"

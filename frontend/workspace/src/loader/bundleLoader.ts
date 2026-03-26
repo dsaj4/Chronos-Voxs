@@ -1,4 +1,9 @@
-import type { PublishedBundle, PublishedStorylineForecastSeries, WorkspaceBootstrap } from "./publishedTypes";
+import type {
+  PublishedBundle,
+  PublishedStorylineForecastSeries,
+  PublishedWorkspaceSession,
+  WorkspaceBootstrap
+} from "./publishedTypes";
 
 const DEFAULT_BUNDLE_URL = "/bundles/golden-forecast-bundle.ai-agent-practicalization.json";
 
@@ -17,6 +22,17 @@ function ensureBundleShape(value: unknown): asserts value is PublishedBundle {
   }
 }
 
+function ensureWorkspaceSessionShape(value: unknown): asserts value is PublishedWorkspaceSession {
+  if (!isRecord(value)) {
+    throw new Error("Workspace session payload is not an object.");
+  }
+  for (const key of ["workspace_id", "analysis_id", "bundle_uri", "default_primary_view", "created_at"]) {
+    if (typeof value[key] !== "string" || !value[key]) {
+      throw new Error(`Workspace session is missing ${key}.`);
+    }
+  }
+}
+
 export function resolvePublishedBundleUrl(
   locationSearch = typeof window !== "undefined" ? window.location.search : "",
   defaultUrl = DEFAULT_BUNDLE_URL
@@ -30,10 +46,42 @@ export function resolvePublishedBundleUrl(
   return override || defaultUrl;
 }
 
-export async function loadPublishedBundle(url = resolvePublishedBundleUrl()): Promise<PublishedBundle> {
+export function resolveWorkspaceSessionUrl(
+  locationSearch = typeof window !== "undefined" ? window.location.search : ""
+): string | null {
+  if (!locationSearch) {
+    return null;
+  }
+
+  const params = new URLSearchParams(locationSearch);
+  const workspace = params.get("workspace")?.trim();
+  return workspace || null;
+}
+
+export async function loadWorkspaceSession(url: string): Promise<PublishedWorkspaceSession> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to load published bundle from ${url}: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to load workspace session from ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  const payload: unknown = await response.json();
+  ensureWorkspaceSessionShape(payload);
+  return payload;
+}
+
+export async function loadPublishedBundle(
+  url?: string,
+  locationSearch = typeof window !== "undefined" ? window.location.search : ""
+): Promise<PublishedBundle> {
+  const workspaceUrl = !url ? resolveWorkspaceSessionUrl(locationSearch) : null;
+  const resolvedUrl = workspaceUrl
+    ? (await loadWorkspaceSession(workspaceUrl)).bundle_uri
+    : (url ?? resolvePublishedBundleUrl(locationSearch));
+  const response = await fetch(resolvedUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load published bundle from ${resolvedUrl}: ${response.status} ${response.statusText}`
+    );
   }
 
   const payload: unknown = await response.json();

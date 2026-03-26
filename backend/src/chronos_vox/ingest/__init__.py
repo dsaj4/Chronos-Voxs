@@ -1,6 +1,7 @@
 """MediaCrawler ingestion bridge for Chronos-Vox."""
 
 from .filesystem import IngestFilesystemStore
+from .mediacrawler_adapter import MediaCrawlerRawRecordAdapter
 from .models import (
     AnalysisJob,
     CrawlResultManifest,
@@ -36,6 +37,7 @@ __all__ = [
     "IngestFilesystemStore",
     "IngestPipeline",
     "IngestTaskStatus",
+    "MediaCrawlerRawRecordAdapter",
     "NormalizedCommentBatch",
     "TimeRange",
     "WorkspaceSession",
@@ -45,4 +47,3 @@ __all__ = [
     "build_workspace_id",
     "ensure_time_range",
 ]
-

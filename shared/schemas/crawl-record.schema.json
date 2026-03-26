@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chronos-vox.dev/schemas/crawl-record.schema.json",
+  "title": "MediaCrawler Raw Output Record",
+  "oneOf": [
+    {
+      "title": "Canonical Comment Record",
+      "type": "object",
+      "required": [
+        "record_id",
+        "platform",
+        "item_id",
+        "comment_id",
+        "text",
+        "published_at",
+        "crawled_at"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_at": {
+          "type": "string",
+          "minLength": 10
+        },
+        "crawled_at": {
+          "type": "string",
+          "minLength": 10
+        },
+        "like_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reply_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "share_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "author_handle": {
+          "type": "string"
+        },
+        "item_title": {
+          "type": "string"
+        },
+        "item_url": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "title": "Bilibili Stored Comment Record",
+      "type": "object",
+      "required": [
+        "comment_id",
+        "video_id",
+        "content",
+        "create_time"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "comment_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "video_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "create_time": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "parent_comment_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "user_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "like_count": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "sub_comment_count": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Bilibili Stored Content Record",
+      "type": "object",
+      "required": [
+        "video_id",
+        "title"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "video_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "video_url": {
+          "type": "string"
+        },
+        "source_keyword": {
+          "type": "string"
+        },
+        "create_time": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

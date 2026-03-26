@@ -17,4 +17,9 @@ npm install
 npm run dev
 ```
 
-The workspace loads the frozen golden bundle from `public/bundles/` so the app can run without touching shared fixtures at runtime.
+The workspace loads the frozen golden bundle from `public/bundles/` by default so the app can run without touching shared fixtures at runtime.
+
+Local inspection entrypoints:
+
+- `?bundle=/bundles/phase1-simulated-bundle.json`
+- `?workspace=/ingest/workspaces/<workspace_id>.json`

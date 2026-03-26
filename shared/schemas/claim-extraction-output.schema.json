@@ -13,16 +13,14 @@
         "additionalProperties": false,
         "required": [
           "text",
-          "evidence_start",
-          "evidence_end",
           "stance",
           "topic_tags",
           "extractor_confidence"
         ],
         "properties": {
+          "span_id": { "type": "string" },
+          "comment_id": { "type": "string" },
           "text": { "type": "string", "minLength": 1 },
-          "evidence_start": { "type": "integer", "minimum": 0 },
-          "evidence_end": { "type": "integer", "minimum": 0 },
           "stance": {
             "type": "string",
             "enum": ["support", "oppose", "mixed", "observe"]

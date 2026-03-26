@@ -12,9 +12,13 @@ dist/
 build/
 .vite/
 *.log
+.env
+.env.*
+!.env.example
 
 artifacts/*
 !artifacts/.gitkeep
+frontend/workspace/public/ingest/
 
 .DS_Store
 Thumbs.db

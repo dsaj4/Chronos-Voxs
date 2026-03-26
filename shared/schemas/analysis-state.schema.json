@@ -332,7 +332,13 @@
         "candidate_span_count": { "type": "integer", "minimum": 0 },
         "accepted_claim_count": { "type": "integer", "minimum": 0 },
         "rejected_candidate_count": { "type": "integer", "minimum": 0 },
-        "llm_cache_hits": { "type": "integer", "minimum": 0 }
+        "llm_cache_hits": { "type": "integer", "minimum": 0 },
+        "claim_batch_count": { "type": "integer", "minimum": 0 },
+        "claim_serialized_char_count": { "type": "integer", "minimum": 0 },
+        "claim_estimated_input_tokens": { "type": "integer", "minimum": 0 },
+        "claim_estimated_output_tokens": { "type": "integer", "minimum": 0 },
+        "claim_retry_count": { "type": "integer", "minimum": 0 },
+        "claim_fallback_batch_count": { "type": "integer", "minimum": 0 }
       }
     }
   }

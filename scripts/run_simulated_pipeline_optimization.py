@@ -10,7 +10,12 @@ SRC = ROOT / "backend" / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from chronos_vox.optimization import OptimizationConfig, run_phase1_optimization
+from chronos_vox.optimization import (
+    OptimizationConfig,
+    build_llm_summary_track_from_env,
+    load_local_env_files,
+    run_phase1_optimization,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -34,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    load_local_env_files()
 
     config = OptimizationConfig(
         case_id=args.case_id,
@@ -43,6 +49,7 @@ def main() -> int:
     publish_bundle_path = Path(args.publish_bundle) if args.publish_bundle else None
     result = run_phase1_optimization(
         config=config,
+        llm_track=build_llm_summary_track_from_env(),
         output_root=Path(args.output_root),
         publish_bundle_path=publish_bundle_path,
     )

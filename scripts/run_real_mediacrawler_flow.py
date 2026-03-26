@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
-from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +16,7 @@ from chronos_vox.ingest import IngestFilesystemStore, IngestPipeline  # noqa: E4
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Bridge a crawl result manifest into Chronos-Vox ingest artifacts.")
+    parser = argparse.ArgumentParser(description="Run the real MediaCrawler manifest -> workspace pipeline.")
     parser.add_argument("--manifest", required=True, help="Path to a crawl result manifest JSON file.")
     parser.add_argument("--store-root", default=str(ROOT / "artifacts" / "ingest"), help="Filesystem ingest store root.")
     parser.add_argument(
@@ -24,21 +24,15 @@ def parse_args() -> argparse.Namespace:
         default=str(ROOT / "frontend" / "workspace" / "public" / "ingest"),
         help="Public artifact root used by the frontend workspace.",
     )
-    parser.add_argument("--normalized-batch-uri", default="", help="Optional output URI for the normalized batch JSON.")
-    parser.add_argument("--bundle-uri", default="", help="Optional bundle URI to seed the workspace session.")
+    parser.add_argument("--output", default="", help="Optional path to write the result JSON.")
     parser.add_argument("--language", default="undetermined", help="Language label for the normalized batch.")
-    parser.add_argument("--output", default="", help="Optional path to write the bridge result JSON.")
-    parser.add_argument("--comment-count", type=int, default=None, help="Override the normalized comment count.")
+    parser.add_argument("--bundle-uri", default="", help="Optional public bundle URI override.")
     parser.add_argument(
-        "--platform-breakdown-json",
-        default="",
-        help="Optional JSON string for platform breakdown, for example '{\"bili\": 120}'.",
+        "--disable-llm",
+        action="store_true",
+        help="Force deterministic summaries instead of the default LLM-with-fallback path.",
     )
     return parser.parse_args()
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def main() -> int:
@@ -46,28 +40,34 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
+    os.environ.setdefault("DASHSCOPE_TIMEOUT_SECONDS", "10")
+    os.environ.setdefault("DASHSCOPE_MAX_RETRIES", "0")
     args = parse_args()
-    manifest_path = Path(args.manifest)
+    manifest_path = Path(args.manifest).resolve()
     store = IngestFilesystemStore(Path(args.store_root), public_root=Path(args.public_root))
-    pipeline = IngestPipeline(store)
-    platform_breakdown = json.loads(args.platform_breakdown_json) if args.platform_breakdown_json else None
-
+    pipeline = IngestPipeline(store, use_llm=not args.disable_llm)
     result = pipeline.bridge_manifest_file_to_workspace(
         manifest_path,
-        normalized_batch_file_uri=args.normalized_batch_uri or None,
-        normalized_comment_count=args.comment_count,
         language=args.language,
-        platform_breakdown=platform_breakdown,
         bundle_uri=args.bundle_uri or None,
     )
 
-    output_payload = json.dumps(result, ensure_ascii=False, indent=2)
+    output_payload = {
+        "task_id": result["manifest"]["task_id"],
+        "dataset_id": result["normalized_batch"]["dataset_id"],
+        "analysis_id": result["analysis_job"]["analysis_id"],
+        "workspace_id": result["workspace_session"]["workspace_id"],
+        "bundle_uri": result["workspace_session"]["bundle_uri"],
+        "workspace_session_uri": result["workspace_session_uri"],
+        "analysis_job": result["analysis_job"],
+    }
+    serialized = json.dumps(output_payload, ensure_ascii=False, indent=2)
     if args.output:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(output_payload, encoding="utf-8")
+        output_path.write_text(serialized, encoding="utf-8")
     else:
-        print(output_payload)
+        print(serialized)
     return 0
 
 
